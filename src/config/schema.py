@@ -41,7 +41,7 @@ class AIProviderConfig(BaseModel):
     """AI provider configuration."""
     
     provider: Literal["openai", "azure", "deepgram", "ollama"] = Field(default="openai", description="AI provider")
-    api_key: str = Field(..., description="API key for the provider")
+    api_key: str = Field(default="", description="API key for the provider")
     model: str = Field(default="gpt-4o", description="AI model to use")
     voice: str = Field(default="alloy", description="Voice for TTS")
     language: str = Field(default="en-US", description="Language for STT/TTS")
@@ -131,8 +131,7 @@ class VoiceAgentConfig(BaseSettings):
     @validator('ai_provider')
     def validate_ai_provider(cls, v):
         """Validate AI provider configuration."""
-        if not v.api_key:
-            raise ValueError("AI provider API key is required")
+        # Only validate if api_key is provided (not empty)
         
         # Provider-specific validation
         if v.provider == "azure" and not v.azure_endpoint:
