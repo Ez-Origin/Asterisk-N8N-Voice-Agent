@@ -1,0 +1,247 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 36,
+        "title": "Initialize Project Repository and Docker Setup",
+        "description": "Set up the project repository structure and create a multi-stage Dockerfile optimized for voice processing workloads.",
+        "details": "Use the latest Python 3.11+ base image. Structure the repo with src/, config/, and monitoring/ directories. Implement a multi-stage Dockerfile: first stage for building dependencies (e.g., Cythonized audio libs), second for runtime. Ensure host networking is supported for SIP/RTP. Include docker-compose.yml for local development. Reference best practices for container security (e.g., non-root user, minimal image).",
+        "testStrategy": "Build and run the Docker image locally. Validate that all dependencies install and the container starts with correct networking. Run a basic health check endpoint.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 37,
+        "title": "Implement Configuration Manager with Validation and Hot-Reload",
+        "description": "Develop a configuration system supporting JSON files and environment variables, with schema validation and hot-reload capability.",
+        "details": "Use Pydantic v2 for schema validation. Support config/engine.json as the primary config file, with environment variable overrides. Implement hot-reload using watchdog to monitor config changes. Provide clear error messages and validation output. Document all required and optional variables. Ensure secure handling of secrets (e.g., API keys).",
+        "testStrategy": "Unit test config loading, validation, and hot-reload. Simulate config changes and verify live reload without restart.",
+        "priority": "high",
+        "dependencies": [
+          36
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 38,
+        "title": "Develop SIP Client for Asterisk Integration",
+        "description": "Create a SIP client for registering as a PJSIP extension with Asterisk 16+ and handling RTP audio streams.",
+        "details": "Use the latest version of the 'pjsua2' Python bindings (or 'aiosip' if async is preferred). Implement SIP REGISTER, INVITE, BYE flows. Handle digest authentication. Support G.711 µ-law/A-law and G.722 codecs. Implement NAT traversal using externip/localnet or ICE/STUN if needed. Ensure RTP port range is configurable. Reference Asterisk best practices for NAT and firewall traversal[1][3].",
+        "testStrategy": "Integration test with a local Asterisk 16+ instance. Validate registration, call setup, and RTP audio flow. Test NAT traversal scenarios.",
+        "priority": "high",
+        "dependencies": [
+          37
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 39,
+        "title": "Build Audio Processing Engine (VAD, Noise Suppression, Echo Cancellation)",
+        "description": "Implement advanced audio processing including VAD, noise suppression, and echo cancellation for RTP streams.",
+        "details": "Use WebRTC Voice Engine (py-webrtcvad for VAD, rnnoise for noise suppression, speexdsp for echo cancellation). Integrate with the SIP client to process incoming/outgoing audio frames. Support real-time processing with minimal latency. Allow enabling/disabling features via config. Optimize for CPU usage.",
+        "testStrategy": "Unit and integration tests with synthetic and real audio. Measure latency and verify audio quality improvements. Validate toggling features via config.",
+        "priority": "high",
+        "dependencies": [
+          38
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 40,
+        "title": "Implement Codec Handler for G.711 and G.722",
+        "description": "Develop a codec handler to negotiate and transcode between supported codecs (G.711 µ-law/A-law, G.722).",
+        "details": "Use the 'pydub' or 'soundfile' library for audio format conversion. Ensure negotiation via SDP during SIP call setup. Support automatic fallback if preferred codec is unavailable. Optimize for real-time transcoding.",
+        "testStrategy": "Unit test codec negotiation and transcoding. Validate with Asterisk using different codec preferences.",
+        "priority": "medium",
+        "dependencies": [
+          39
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 41,
+        "title": "Develop WebSocket Manager for AI Provider Communication",
+        "description": "Create a WebSocket manager for low-latency, real-time communication with AI providers (OpenAI Realtime API as MVP).",
+        "details": "Use 'websockets' (v12+) or 'aiohttp' for async WebSocket connections. Implement connection pooling and automatic reconnection. Support sub-second round-trip latency. Provide hooks for sending/receiving audio and text data. Ensure secure connection (wss://) and provider authentication.",
+        "testStrategy": "Unit and integration tests with OpenAI Realtime API. Measure latency and throughput. Simulate connection drops and verify recovery.",
+        "priority": "high",
+        "dependencies": [
+          40
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 42,
+        "title": "Integrate OpenAI Realtime API for STT/LLM/TTS",
+        "description": "Implement provider integration for OpenAI Realtime API, supporting streaming STT, LLM, and TTS in the call loop.",
+        "details": "Follow OpenAI's latest streaming API docs. Use WebSocket streaming for STT and TTS. Implement per-call context and prompt injection. Support provider-specific voice selection. Handle API errors and rate limits gracefully.",
+        "testStrategy": "Integration test with OpenAI Realtime API. Validate end-to-end call flow: audio in → STT → LLM → TTS → audio out. Test with different voices and prompts.",
+        "priority": "high",
+        "dependencies": [
+          41
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 43,
+        "title": "Implement Call Session and Conversation Loop Management",
+        "description": "Develop the core call/session state machine, managing per-call context, provider selection, and conversation flow.",
+        "details": "Model call sessions with unique call-id, timestamps, language, and context. Implement a robust async loop for STT → LLM → TTS cycles. Support per-call instructions and prompt injection. Handle call termination (BYE, timeout). Reference patterns from engine.py and call.py in the original repo.",
+        "testStrategy": "Unit and integration tests simulating multiple concurrent calls. Validate context management and session cleanup.",
+        "priority": "high",
+        "dependencies": [
+          42
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 44,
+        "title": "Add CLI Interface for Configuration and Management",
+        "description": "Create a CLI tool for configuration, validation, and management with help and error reporting.",
+        "details": "Use Typer (v0.12+) for modern CLI development. Implement commands for config validation, environment checks, and starting/stopping the engine. Provide detailed help and error messages. Support interactive setup for first-time users.",
+        "testStrategy": "Unit test CLI commands. Validate error handling and help output. Simulate misconfigurations and verify validation.",
+        "priority": "medium",
+        "dependencies": [
+          37
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 45,
+        "title": "Implement Health Monitoring and Metrics Collection",
+        "description": "Develop health endpoints and metrics collection for system performance, audio quality, and error rates.",
+        "details": "Expose HTTP endpoints for readiness/liveness (using FastAPI or Flask). Collect metrics (latency, error rates, audio quality) using Prometheus client (prometheus_client v0.18+). Support optional Grafana integration. Ensure endpoints are secured (e.g., token auth).",
+        "testStrategy": "Integration test endpoints with Prometheus and Grafana. Simulate failures and verify alerting.",
+        "priority": "medium",
+        "dependencies": [
+          43
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 46,
+        "title": "Implement Security Layer: Encryption, Access Control, and Audit Logging",
+        "description": "Add end-to-end encryption for voice data, role-based access control, and comprehensive audit logging.",
+        "details": "Use TLS for SIP (port 5061) and SRTP for RTP streams[2]. Implement role-based access using JWT or OAuth2 for management endpoints. Log all security events and access attempts. Support GDPR/CCPA/HIPAA compliance via configurable data retention and anonymization.",
+        "testStrategy": "Penetration test SIP/TLS and SRTP setup. Validate access controls and audit logs. Test compliance features (data deletion, anonymization).",
+        "priority": "high",
+        "dependencies": [
+          45
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 47,
+        "title": "Add Structured Logging and Error Handling",
+        "description": "Implement structured, context-rich logging across all components, with error categorization and traceability.",
+        "details": "Use structlog (v24+) or Python's logging with JSON formatter. Include call/session IDs in all logs. Categorize logs by severity and component. Support log rotation and configurable retention. Integrate with external log collectors (e.g., Loki, ELK stack) if enabled.",
+        "testStrategy": "Unit test log output and error handling. Simulate errors and verify log entries. Validate log ingestion with external systems.",
+        "priority": "medium",
+        "dependencies": [
+          46
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 48,
+        "title": "Integrate Azure Speech and Deepgram Providers (Phase 2)",
+        "description": "Add support for Azure Speech and Deepgram as alternative AI providers, with automatic fallback and provider selection.",
+        "details": "Implement provider modules using Azure Speech SDK (v1.31+) and Deepgram Python SDK (v3.0+). Support streaming STT/TTS via WebSocket or REST as per provider. Implement fallback logic in provider interface. Allow provider selection via config/env.",
+        "testStrategy": "Integration test with both providers. Simulate provider failures and verify fallback. Validate multi-language support.",
+        "priority": "medium",
+        "dependencies": [
+          43
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 49,
+        "title": "Implement MCP Tool Integration Layer",
+        "description": "Develop a pluggable tool interface for MCP integrations (e.g., calendar, web automation) with safe defaults.",
+        "details": "Define a generic tool interface in src/mcp_client.py. Support safe execution and sandboxing. Allow enabling/disabling tools via config. Document integration points for custom tools.",
+        "testStrategy": "Unit test tool invocation and sandboxing. Validate safe defaults and error handling.",
+        "priority": "low",
+        "dependencies": [
+          43
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 50,
+        "title": "Implement Audio Quality Monitoring and Optimization",
+        "description": "Add real-time audio quality monitoring and automatic optimization features.",
+        "details": "Monitor jitter, packet loss, and MOS using pyRTP or custom metrics. Expose quality metrics via Prometheus. Implement auto-tuning for audio processing parameters based on real-time feedback.",
+        "testStrategy": "Integration test with simulated network conditions. Validate metrics and optimization actions.",
+        "priority": "medium",
+        "dependencies": [
+          39,
+          45
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 51,
+        "title": "Develop Alerting and Notification System",
+        "description": "Implement configurable alerting for system issues, performance degradation, and security events.",
+        "details": "Integrate with Prometheus Alertmanager or custom webhook notifications. Allow configuration of alert thresholds and notification channels (email, Slack, etc.). Ensure alerts are actionable and include context.",
+        "testStrategy": "Simulate alert conditions and verify notifications are sent. Validate alert configuration and suppression.",
+        "priority": "low",
+        "dependencies": [
+          45,
+          47
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 52,
+        "title": "Implement Comprehensive Documentation and Examples",
+        "description": "Write step-by-step guides, configuration examples, and troubleshooting documentation for all features.",
+        "details": "Use MkDocs or Sphinx for documentation site. Include setup guides for SIP and AudioSocket modes, provider configuration, security, and monitoring. Provide example configs and CLI usage. Document troubleshooting for common issues (NAT, codec, provider errors).",
+        "testStrategy": "Manual review and user testing. Validate all steps with a clean setup. Solicit feedback from beta users.",
+        "priority": "medium",
+        "dependencies": [
+          44,
+          48
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 53,
+        "title": "Prepare for AudioSocket Integration (Future Enhancement)",
+        "description": "Design and scaffold the AudioSocket client and integration manager for Asterisk 18+ compatibility.",
+        "details": "Create src/audiosocket_client.py and integration_manager.py. Define interfaces for audio streaming via AudioSocket. Ensure backward compatibility with SIP mode. Document requirements for Asterisk 18+ and AudioSocket module.",
+        "testStrategy": "Unit test scaffolding and interface contracts. Validate mode selection logic.",
+        "priority": "low",
+        "dependencies": [
+          38,
+          39
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-09-05T22:39:53.948Z",
+      "updated": "2025-09-05T22:59:10.344Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
