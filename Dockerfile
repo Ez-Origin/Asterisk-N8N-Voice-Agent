@@ -28,11 +28,11 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libpulse0 \
     libsndfile1 \
-    libfftw3-3 \
-    libavcodec60 \
-    libavformat60 \
-    libavutil58 \
-    libswresample4 \
+    libfftw3-double3 \
+    libavcodec61 \
+    libavformat61 \
+    libavutil59 \
+    libswresample5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python packages from builder
