@@ -35,9 +35,6 @@ RUN apt-get update && apt-get install -y \
     libswresample5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
-
 # Create non-root user
 RUN useradd -m -u 1000 voiceagent && \
     mkdir -p /app && \
@@ -46,13 +43,17 @@ RUN useradd -m -u 1000 voiceagent && \
 # Set working directory
 WORKDIR /app
 
+# Copy Python packages from builder to user directory
+COPY --from=builder /root/.local /home/voiceagent/.local
+RUN chown -R voiceagent:voiceagent /home/voiceagent/.local
+
 # Copy application code
 COPY src/ ./src/
 COPY config/ ./config/
 COPY scripts/ ./scripts/
 
 # Set Python path
-ENV PATH=/root/.local/bin:$PATH
+ENV PATH=/home/voiceagent/.local/bin:$PATH
 ENV PYTHONPATH=/app
 
 # Switch to non-root user
