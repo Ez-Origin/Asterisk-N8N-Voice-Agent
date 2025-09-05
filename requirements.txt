@@ -11,7 +11,7 @@ pysip>=0.1.0
 
 # Audio Processing
 webrtcvad>=2.0.10
-py-webrtc-audio-processing>=0.3.0
+# py-webrtc-audio-processing>=0.3.0  # Package not found, will use alternative
 soundfile>=0.12.1
 pydub>=0.25.1
 
