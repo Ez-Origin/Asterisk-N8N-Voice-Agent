@@ -80,11 +80,27 @@ Asterisk-AI-Voice-Agent/
 
 ### Environment Variables
 - `INTEGRATION_MODE`: `sip` (default)
-- `ASTERISK_HOST`: Test server IP/hostname
+- `ASTERISK_HOST`: `voiprnd.nemtclouddispatch.com`
 - `ASTERISK_VERSION`: `16`
-- `SIP_EXTENSION`: PJSIP extension number
-- `SIP_PASSWORD`: Extension password
-- `OPENAI_API_KEY`: OpenAI API key
+- `SIP_EXTENSION`: `3000`
+- `SIP_PASSWORD`: `AIAgent2025`
+- `OPENAI_API_KEY`: `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`
+- `DEEPGRAM_API_KEY`: `55f64bf8b7773814ed3840a5d6dd61e512f71d66`
+
+### Testing Configuration
+#### Extension Credentials for Testing
+- **Extension Number**: 3000
+- **Password**: AIAgent2025
+- **Verification Command**: `asterisk -rx "pjsip show endpoint 3000"`
+
+#### API Keys for Testing
+- **OpenAI API Key**: `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`
+- **Deepgram API Key**: `55f64bf8b7773814ed3840a5d6dd61e512f71d66`
+
+#### AI Prompt Configuration
+- **AI Role**: Helpful AI Assistant for Jugaar LLC
+- **Initial Prompt**: "Hello, I am an AI Assistant for Jugaar LLC. How can I help you today."
+- **Instructions**: Answer inbound calls professionally and helpfully
 
 ### Common Commands
 ```bash
@@ -102,6 +118,25 @@ ssh root@voiprnd.nemtclouddispatch.com
 cd /path/to/project
 git pull origin main
 docker-compose up --build
+```
+
+### Testing Commands
+```bash
+# Verify SIP extension registration
+asterisk -rx "pjsip show endpoint 3000"
+
+# Check Asterisk status
+asterisk -rx "core show version"
+asterisk -rx "pjsip show endpoints"
+
+# Test Docker container
+docker run --rm asterisk-voice-agent python -c "import sys; print(f'Python {sys.version}')"
+
+# Test health endpoint
+curl -f http://localhost:8000/health
+
+# Monitor Asterisk logs
+tail -f /var/log/asterisk/full
 ```
 
 ### Important Notes
