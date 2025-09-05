@@ -142,7 +142,7 @@ class VoiceAgentConfig(BaseSettings):
             
         return v
     
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def validate_config(cls, values):
         """Root validation for the entire configuration."""
         # Ensure log directory exists
