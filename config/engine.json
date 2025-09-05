@@ -1,0 +1,57 @@
+{
+  "integration": {
+    "mode": "sip",
+    "asterisk_host": "voiprnd.nemtclouddispatch.com",
+    "asterisk_version": 16,
+    "sip": {
+      "extension": "1001",
+      "password": "password",
+      "domain": "",
+      "port": 5060,
+      "transport": "udp"
+    }
+  },
+  "audio": {
+    "vad_enabled": true,
+    "noise_suppression": true,
+    "echo_cancellation": true,
+    "codecs": ["G711_ULAW", "G711_ALAW", "G722"],
+    "sample_rate": 8000,
+    "channels": 1
+  },
+  "ai": {
+    "provider": "openai",
+    "openai": {
+      "model": "gpt-4",
+      "voice": "alloy",
+      "temperature": 0.7,
+      "max_tokens": 150
+    },
+    "azure": {
+      "voice": "en-US-AriaNeural",
+      "language": "en-US"
+    },
+    "deepgram": {
+      "model": "nova-2",
+      "language": "en-US"
+    }
+  },
+  "security": {
+    "encryption_enabled": true,
+    "audit_logging": true,
+    "data_retention_days": 30
+  },
+  "monitoring": {
+    "enabled": true,
+    "health_port": 8000,
+    "metrics_enabled": true,
+    "log_level": "info"
+  },
+  "logging": {
+    "level": "info",
+    "transcription_enabled": false,
+    "file_rotation": true,
+    "max_file_size": "10MB",
+    "backup_count": 5
+  }
+}
