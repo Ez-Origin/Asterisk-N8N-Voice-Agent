@@ -245,7 +245,7 @@
             "title": "Integrate AI Providers",
             "description": "Connect OpenAI Realtime API handlers (STT, LLM, TTS) to the conversation loop",
             "details": "Integrate the OpenAI Realtime API client and handlers into the conversation loop. Handle provider selection, error handling, and streaming responses.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 43
           },
@@ -254,7 +254,7 @@
             "title": "Implement Call State Machine",
             "description": "Create robust call state management with proper call termination handling",
             "details": "Implement call state machine to handle call lifecycle: ringing, connected, processing, ended. Handle call termination (BYE, timeout) and cleanup. Support per-call instructions and prompt injection.",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 43
           }
@@ -397,7 +397,7 @@
     ],
     "metadata": {
       "created": "2025-09-05T22:39:53.948Z",
-      "updated": "2025-09-06T02:44:10.645Z",
+      "updated": "2025-09-06T02:49:24.555Z",
       "description": "Tasks for master context"
     }
   }
