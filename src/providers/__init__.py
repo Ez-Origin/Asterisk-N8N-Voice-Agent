@@ -14,11 +14,26 @@ from .websocket_manager import (
     MessageType
 )
 
+from .openai import (
+    RealtimeClient,
+    RealtimeConfig,
+    RealtimeMessage,
+    RealtimeMessageType,
+    VoiceType,
+    AudioChunk
+)
+
 __all__ = [
     'WebSocketManager',
     'WebSocketPool', 
     'WebSocketConfig',
     'WebSocketState',
     'WebSocketMessage',
-    'MessageType'
+    'MessageType',
+    'RealtimeClient',
+    'RealtimeConfig',
+    'RealtimeMessage',
+    'RealtimeMessageType',
+    'VoiceType',
+    'AudioChunk'
 ]
