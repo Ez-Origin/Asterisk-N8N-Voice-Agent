@@ -143,7 +143,6 @@ class ConversationLoop:
             )
             
             self.audio_pipeline = AudioProcessingPipeline(pipeline_config)
-            await self.audio_pipeline.initialize()
             
             logger.info("Audio processing pipeline initialized")
             
