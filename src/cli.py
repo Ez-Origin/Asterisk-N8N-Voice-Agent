@@ -313,7 +313,7 @@ def health():
         # Check required files
         required_files = [
             "src/engine.py",
-            "src/config_manager.py",
+            "src/config/manager.py",
             "src/sip_client.py",
             "config/engine.json"
         ]
