@@ -109,9 +109,11 @@ def test_cli_health():
     
     result = runner.invoke(app, ["health"])
     
-    assert result.exit_code == 0
+    # Health command should return exit code 1 when there are issues (missing env vars)
+    assert result.exit_code == 1
     assert "System Health Check" in result.stdout
     assert "Python Version" in result.stdout
+    assert "Missing" in result.stdout  # Should detect missing environment variables
     print("✅ Health command test passed")
 
 def test_cli_test_openai():
