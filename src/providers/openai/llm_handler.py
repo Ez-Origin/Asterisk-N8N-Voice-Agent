@@ -208,11 +208,8 @@ class LLMHandler:
                 if self.conversation_history[0]["role"] == "system":
                     system_msg = self.conversation_history.pop(0)
                 
-                # Remove oldest messages (keep last max_context_length - 1)
+                # Keep last max_context_length - 1 messages (excluding system message)
                 keep_count = self.config.max_context_length - 1
-                if system_msg:
-                    keep_count -= 1
-                
                 self.conversation_history = self.conversation_history[-keep_count:]
                 
                 if system_msg:
