@@ -9,14 +9,14 @@
         "testStrategy": "Build and run the Docker image locally. Validate that all dependencies install and the container starts with correct networking. Run a basic health check endpoint.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Create Multi-stage Dockerfile",
             "description": "Create a multi-stage Dockerfile optimized for voice processing workloads with Python 3.11+ base image",
             "details": "Implement build stage for dependencies and runtime stage for the application. Include audio processing libraries and SIP/RTP support. Ensure host networking compatibility.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 36
           }
@@ -32,7 +32,7 @@
         "dependencies": [
           36
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -58,8 +58,54 @@
         "dependencies": [
           38
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Install Audio Processing Dependencies",
+            "description": "Add required Python packages for VAD, noise suppression, and echo cancellation",
+            "details": "Install webrtcvad, rnnoise, speexdsp, and other audio processing libraries. Update requirements.txt and Dockerfile.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 39
+          },
+          {
+            "id": 2,
+            "title": "Implement Voice Activity Detection (VAD)",
+            "description": "Create VAD module using webrtcvad for real-time voice detection",
+            "details": "Implement VAD class with configurable sensitivity levels, frame processing, and integration with RTP audio streams.",
+            "status": "in-progress",
+            "dependencies": [],
+            "parentTaskId": 39
+          },
+          {
+            "id": 3,
+            "title": "Implement Noise Suppression",
+            "description": "Add noise suppression using rnnoise for cleaner audio",
+            "details": "Create noise suppression module with real-time processing, configurable levels, and integration with audio pipeline.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 39
+          },
+          {
+            "id": 4,
+            "title": "Implement Echo Cancellation",
+            "description": "Add echo cancellation using speexdsp for better call quality",
+            "details": "Create echo cancellation module with adaptive filtering, configurable parameters, and real-time processing.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 39
+          },
+          {
+            "id": 5,
+            "title": "Create Audio Processing Pipeline",
+            "description": "Integrate all audio processing components into a unified pipeline",
+            "details": "Create main audio processing engine that coordinates VAD, noise suppression, and echo cancellation. Add configuration options and performance monitoring.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 39
+          }
+        ]
       },
       {
         "id": 40,
@@ -250,7 +296,7 @@
     ],
     "metadata": {
       "created": "2025-09-05T22:39:53.948Z",
-      "updated": "2025-09-06T00:22:41.599Z",
+      "updated": "2025-09-06T00:58:47.114Z",
       "description": "Tasks for master context"
     }
   }
