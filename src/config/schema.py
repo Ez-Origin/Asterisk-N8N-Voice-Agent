@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 
 
-class SIPConfig(BaseModel):
+class SIPConfig(BaseSettings):
     """SIP/RTP configuration settings."""
     
     host: str = Field(default="voiprnd.nemtclouddispatch.com", description="Asterisk server hostname")
@@ -25,6 +25,9 @@ class SIPConfig(BaseModel):
     rtp_port_range: tuple[int, int] = Field(default=(10000, 20000), description="RTP port range")
     nat_traversal: bool = Field(default=True, description="Enable NAT traversal")
     stun_server: Optional[str] = Field(default=None, description="STUN server for NAT traversal")
+    
+    class Config:
+        env_prefix = "VOICE_AGENT_SIP_"
 
 
 class AudioConfig(BaseModel):
@@ -40,7 +43,7 @@ class AudioConfig(BaseModel):
     vad_aggressiveness: int = Field(default=2, ge=0, le=3, description="VAD aggressiveness level")
 
 
-class AIProviderConfig(BaseModel):
+class AIProviderConfig(BaseSettings):
     """AI provider configuration."""
     
     provider: Literal["openai", "azure", "deepgram", "ollama"] = Field(default="openai", description="AI provider")
@@ -59,6 +62,9 @@ class AIProviderConfig(BaseModel):
     azure_region: Optional[str] = Field(default=None, description="Azure region")
     deepgram_model: Optional[str] = Field(default="nova-2", description="Deepgram model")
     ollama_base_url: Optional[str] = Field(default="http://localhost:11434", description="Ollama base URL")
+    
+    class Config:
+        env_prefix = "VOICE_AGENT_AI_PROVIDER_"
 
 
 class SecurityConfig(BaseModel):
