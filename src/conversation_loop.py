@@ -139,8 +139,7 @@ class ConversationLoop:
                 enable_vad=self.config.enable_vad,
                 enable_noise_suppression=self.config.enable_noise_suppression,
                 enable_echo_cancellation=self.config.enable_echo_cancellation,
-                sample_rate=self.session.sample_rate,
-                vad_threshold=self.config.vad_threshold
+                sample_rate=self.session.sample_rate
             )
             
             self.audio_pipeline = AudioProcessingPipeline(pipeline_config)
