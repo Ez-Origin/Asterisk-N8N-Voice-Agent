@@ -159,9 +159,7 @@ class ConversationLoop:
             # Initialize Realtime client
             realtime_config = RealtimeConfig(
                 api_key=self.config.openai_api_key,
-                model=self.config.openai_model,
-                voice=self.config.voice_type,
-                language=self.config.language
+                voice=self.config.voice_type
             )
             
             self.realtime_client = RealtimeClient(realtime_config)
