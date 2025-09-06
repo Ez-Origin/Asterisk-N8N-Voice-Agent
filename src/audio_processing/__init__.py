@@ -22,6 +22,14 @@ from .pipeline import (
     AudioFrame,
     PipelineMode
 )
+from .codec_handler import (
+    CodecHandler,
+    CodecManager,
+    CodecConfig,
+    CodecType,
+    CodecInfo,
+    CodecCapability
+)
 
 __all__ = [
     'VoiceActivityDetector', 
@@ -40,5 +48,11 @@ __all__ = [
     'AudioProcessingManager',
     'AudioProcessingConfig',
     'AudioFrame',
-    'PipelineMode'
+    'PipelineMode',
+    'CodecHandler',
+    'CodecManager',
+    'CodecConfig',
+    'CodecType',
+    'CodecInfo',
+    'CodecCapability'
 ]
