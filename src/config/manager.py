@@ -58,7 +58,7 @@ class ConfigManager:
     
     def __init__(self, config_file: str = "config/engine.json"):
         self.config_file_path = Path(config_file)
-        self.config: VoiceAgentConfig = DEFAULT_CONFIG
+        self.config: VoiceAgentConfig = None  # Will be loaded in load_config()
         self.observers: List[Observer] = []
         self.callbacks: List[Callable[[VoiceAgentConfig], None]] = []
         self._lock = asyncio.Lock()
