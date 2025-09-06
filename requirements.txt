@@ -15,9 +15,13 @@ webrtcvad>=2.0.10
 soundfile>=0.12.1
 pydub>=0.25.1
 # Noise suppression and echo cancellation
-rnnoise>=0.1.0
-speexdsp>=1.2.0
+# rnnoise>=0.1.0  # Not available in PyPI, will use alternative
+# speexdsp>=1.2.0  # Not available in PyPI, will use alternative
 # Alternative audio processing libraries
+# Working alternatives for noise suppression and echo cancellation
+pywebrtc>=0.1.0
+# For echo cancellation, we will implement using scipy signal processing
+# For noise suppression, we will use noisereduce and librosa
 noisereduce>=3.0.0
 librosa>=0.10.0
 numpy>=1.24.0
