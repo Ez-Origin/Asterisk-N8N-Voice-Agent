@@ -60,6 +60,8 @@ class ConversationConfig:
     on_ai_response: Optional[Callable[[str], None]] = None
     on_error: Optional[Callable[[str, Exception], None]] = None
     on_state_change: Optional[Callable[[ConversationState], None]] = None
+    on_speech_detected: Optional[Callable[[Any], None]] = None
+    on_audio_error: Optional[Callable[[Exception], None]] = None
 
 
 class ConversationLoop:
@@ -144,7 +146,15 @@ class ConversationLoop:
             
             self.audio_pipeline = AudioProcessingPipeline(pipeline_config)
             
-            logger.info("Audio processing pipeline initialized")
+            # Setup audio processing callbacks
+            self.audio_pipeline.on_speech_detected = self._on_speech_detected
+            self.audio_pipeline.on_frame_processed = self._on_frame_processed
+            self.audio_pipeline.on_error = self._on_audio_error
+            
+            # Start the pipeline
+            self.audio_pipeline.start()
+            
+            logger.info("Audio processing pipeline initialized and started")
             
         except Exception as e:
             logger.error(f"Failed to initialize audio processing: {e}")
@@ -218,6 +228,68 @@ class ConversationLoop:
             self.tts_handler.config.on_audio_chunk = self._on_audio_chunk
             self.tts_handler.config.on_speech_end = self._on_tts_speech_end
     
+    async def _handle_processed_frame(self, frame):
+        """Handle a processed audio frame from the pipeline."""
+        try:
+            # Check for voice activity
+            if frame.metadata.get('is_speech', False):
+                self.stats['vad_detections'] += 1
+                
+                # Buffer audio for STT
+                self.current_audio_buffer += frame.data
+                
+                # Start STT if not already listening
+                if self.state == ConversationState.LISTENING:
+                    await self._start_listening()
+                
+                # Reset silence timer
+                self.silence_start_time = None
+            else:
+                # Check for silence timeout
+                if self.silence_start_time is None:
+                    self.silence_start_time = time.time()
+                elif time.time() - self.silence_start_time > self.config.silence_timeout:
+                    await self._process_speech()
+            
+            # Update statistics
+            if frame.metadata.get('noise_suppression_applied', False):
+                self.stats['noise_suppression_applied'] += 1
+            if frame.metadata.get('echo_cancellation_applied', False):
+                self.stats['echo_cancellation_applied'] += 1
+                
+        except Exception as e:
+            logger.error(f"Error handling processed frame: {e}")
+    
+    def _on_speech_detected(self, frame):
+        """Callback for speech detection from audio pipeline."""
+        try:
+            logger.debug("Speech detected in audio pipeline")
+            self.stats['vad_detections'] += 1
+            
+            # Call user callback if set
+            if self.config.on_speech_detected:
+                self.config.on_speech_detected(frame)
+                
+        except Exception as e:
+            logger.error(f"Error in speech detection callback: {e}")
+    
+    def _on_frame_processed(self, frame):
+        """Callback for processed frame from audio pipeline."""
+        try:
+            # This is handled in _handle_processed_frame for async processing
+            pass
+        except Exception as e:
+            logger.error(f"Error in frame processed callback: {e}")
+    
+    def _on_audio_error(self, error):
+        """Callback for audio processing errors."""
+        try:
+            logger.error(f"Audio processing error: {error}")
+            if self.config.on_audio_error:
+                self.config.on_audio_error(error)
+        except Exception as e:
+            logger.error(f"Error in audio error callback: {e}")
+    
     async def start(self) -> bool:
         """Start the conversation loop."""
         try:
@@ -260,6 +332,10 @@ class ConversationLoop:
         
         if self.tts_handler:
             await self.tts_handler.stop_synthesis()
+        
+        # Stop audio processing pipeline
+        if self.audio_pipeline:
+            self.audio_pipeline.stop()
         
         # Disconnect from OpenAI
         if self.realtime_client:
@@ -322,27 +398,25 @@ class ConversationLoop:
             
             # Process through audio pipeline
             if self.audio_pipeline:
-                processed_audio = await self.audio_pipeline.process_audio(audio_data)
+                # Create audio frame
+                from src.audio_processing.pipeline import AudioFrame
+                audio_frame = AudioFrame(
+                    data=audio_data,
+                    timestamp=time.time(),
+                    metadata={'source': 'sip_call'}
+                )
                 
-                # Check for voice activity
-                if self.audio_pipeline.is_voice_detected():
-                    self.stats['vad_detections'] += 1
-                    
-                    # Buffer audio for STT
-                    self.current_audio_buffer += processed_audio
-                    
-                    # Start STT if not already listening
-                    if self.state == ConversationState.LISTENING:
-                        await self._start_listening()
+                # Add frame to pipeline for processing
+                self.audio_pipeline.add_frame(audio_frame)
                 
-                # Check for silence timeout
-                if self.audio_pipeline.is_silence_detected():
-                    if self.silence_start_time is None:
-                        self.silence_start_time = time.time()
-                    elif time.time() - self.silence_start_time > self.config.silence_timeout:
-                        await self._process_speech()
-                else:
-                    self.silence_start_time = None
+                # Get processed frames (non-blocking)
+                while True:
+                    processed_frame = self.audio_pipeline.get_processed_frame(timeout=0.001)
+                    if processed_frame is None:
+                        break
+                    
+                    # Handle processed frame
+                    await self._handle_processed_frame(processed_frame)
             
             return True
             
