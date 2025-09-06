@@ -13,7 +13,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Any, Callable, Set
 from datetime import datetime, timedelta
 
-from .call_session import CallSession, CallState, CallDirection
+from call_session import CallSession, CallState, CallDirection
 
 logger = logging.getLogger(__name__)
 
