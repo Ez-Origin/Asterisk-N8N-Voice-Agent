@@ -15,7 +15,7 @@ from unittest.mock import Mock, AsyncMock, MagicMock
 # Add src to path
 sys.path.insert(0, 'src')
 
-from call_session import CallSession, CallSessionConfig, CallState
+from call_session import CallSession, CallState, CallDirection
 from conversation_loop import ConversationLoop, ConversationConfig, ConversationState
 from providers.openai import RealtimeClient, STTHandler, LLMHandler, TTSHandler
 from providers.openai import RealtimeConfig, STTConfig, LLMConfig, TTSConfig
@@ -145,8 +145,13 @@ async def test_ai_provider_integration():
     
     try:
         # Create mock session
-        session_config = CallSessionConfig()
-        session = CallSession("test-call-123", "user123", "agent", session_config)
+        session = CallSession(
+            call_id="test-call-123",
+            session_id="test-session-123",
+            from_user="user123",
+            to_user="agent",
+            direction=CallDirection.INBOUND
+        )
         
         # Create conversation config
         conv_config = ConversationConfig(
@@ -250,8 +255,13 @@ async def test_error_handling():
     
     try:
         # Create mock session
-        session_config = CallSessionConfig()
-        session = CallSession("test-call-error", "user123", "agent", session_config)
+        session = CallSession(
+            call_id="test-call-error",
+            session_id="test-session-error",
+            from_user="user123",
+            to_user="agent",
+            direction=CallDirection.INBOUND
+        )
         
         # Create conversation config
         conv_config = ConversationConfig(
@@ -296,8 +306,13 @@ async def test_callback_integration():
     
     try:
         # Create mock session
-        session_config = CallSessionConfig()
-        session = CallSession("test-call-callbacks", "user123", "agent", session_config)
+        session = CallSession(
+            call_id="test-call-callbacks",
+            session_id="test-session-callbacks",
+            from_user="user123",
+            to_user="agent",
+            direction=CallDirection.INBOUND
+        )
         
         # Create conversation config with callbacks
         callback_calls = []
