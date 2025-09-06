@@ -105,7 +105,11 @@ class ConfigManager:
                 return self.config
             except Exception as env_error:
                 logger.error(f"Failed to load default configuration: {env_error}")
-                self.config = DEFAULT_CONFIG
+                # Create a minimal config as fallback
+                self.config = VoiceAgentConfig(
+                    sip=SIPConfig(host="localhost", extension="3000", password=""),
+                    ai_provider=AIProviderConfig(provider="openai", api_key="")
+                )
                 return self.config
     
     async def reload_config(self) -> VoiceAgentConfig:
