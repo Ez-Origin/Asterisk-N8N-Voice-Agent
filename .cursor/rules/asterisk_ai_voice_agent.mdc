@@ -157,7 +157,7 @@ asterisk -rx "channel originate SIP/callcentric/13164619284 extension s@ivr-3"
 This command will:
 - Originate a call from the Callcentric SIP trunk (13164619284)
 - Route it to extension `s@ivr-3` (which should be configured to use the AI voice agent)
-- Test the complete end-to-end voice agent functionality
+- Check docker logs and see if call was answered by AI Engine correctly
 
 ### Important Notes
 - **No Server Changes**: Never modify code directly on the test server

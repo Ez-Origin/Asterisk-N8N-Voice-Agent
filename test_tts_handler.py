@@ -271,7 +271,7 @@ async def test_voice_management():
         mock_client = MockRealtimeClient()
         
         # Test different voice types
-        voices = [VoiceType.ALLOY, VoiceType.ECHO, VoiceType.FABLE, VoiceType.ONYX, VoiceType.NOVA, VoiceType.SHIMER]
+        voices = [VoiceType.ALLOY, VoiceType.ECHO, VoiceType.FABLE, VoiceType.ONYX, VoiceType.NOVA, VoiceType.SHIMMER]
         
         for voice in voices:
             config = TTSConfig(voice=voice)

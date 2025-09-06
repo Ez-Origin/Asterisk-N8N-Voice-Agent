@@ -441,9 +441,7 @@ class LLMHandler:
             
             # Calculate average response time
             if self.stats['responses_completed'] > 0:
-                total_time = sum([
-                    r.get('duration_ms', 0) for r in [self.current_response]
-                ])
+                total_time = self.current_response.duration_ms
                 self.stats['average_response_time_ms'] = total_time / self.stats['responses_completed']
             
             # Add response to conversation history

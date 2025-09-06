@@ -106,7 +106,7 @@ class TTSHandler:
         # Audio management
         self.current_response = TTSResponse()
         self.audio_buffer = b""
-        self.is_speaking = False
+        self._is_speaking = False
         
         # Statistics
         self.stats = {
@@ -295,8 +295,8 @@ class TTSHandler:
                 self.state = TTSState.STREAMING
             
             # Handle speech events
-            if not self.is_speaking:
-                self.is_speaking = True
+            if not self._is_speaking:
+                self._is_speaking = True
                 self.stats['speech_events'] += 1
                 
                 # Call speech start callback
@@ -341,14 +341,12 @@ class TTSHandler:
             
             # Calculate average synthesis time
             if self.stats['syntheses_completed'] > 0:
-                total_time = sum([
-                    r.get('duration_ms', 0) for r in [self.current_response]
-                ])
+                total_time = self.current_response.duration_ms
                 self.stats['average_synthesis_time_ms'] = total_time / self.stats['syntheses_completed']
             
             # Handle speech end
-            if self.is_speaking:
-                self.is_speaking = False
+            if self._is_speaking:
+                self._is_speaking = False
                 
                 # Call speech end callback
                 if self.config.on_speech_end:
@@ -388,7 +386,7 @@ class TTSHandler:
         self.stats['errors'] += 1
         self.state = TTSState.ERROR
         self.is_processing = False
-        self.is_speaking = False
+        self._is_speaking = False
         
         if self.config.enable_logging:
             logger.error(f"TTS error: {error_message}")
@@ -413,7 +411,7 @@ class TTSHandler:
     
     def is_speaking(self) -> bool:
         """Check if the handler is currently speaking."""
-        return self.is_speaking
+        return self._is_speaking
     
     def get_stats(self) -> Dict[str, Any]:
         """Get TTS handler statistics."""
@@ -440,7 +438,7 @@ class TTSHandler:
             # Reset state
             self.state = TTSState.IDLE
             self.is_processing = False
-            self.is_speaking = False
+            self._is_speaking = False
             self.synthesis_start_time = 0
             self.last_activity_time = 0
             
