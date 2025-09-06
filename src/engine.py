@@ -1,84 +1,204 @@
 """
-Main engine module for Asterisk AI Voice Agent.
+Main AI Voice Agent Engine
 
-This module contains the core conversation loop and session management.
+This module provides the main engine that coordinates between the SIP client,
+audio processing, and AI providers to create a complete voice agent system.
 """
 
 import asyncio
 import logging
-from typing import Optional
+import signal
+import sys
+from typing import Optional, Dict, Any
+from pathlib import Path
 
+from src.config import ConfigManager
+from src.sip_client import SIPClient, SIPConfig, CallInfo
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 
 class VoiceAgentEngine:
-    """Main engine class for the AI Voice Agent."""
+    """
+    Main voice agent engine that coordinates all components.
     
-    def __init__(self):
+    This engine manages the SIP client, audio processing, and AI provider
+    integration to provide a complete voice agent solution.
+    """
+    
+    def __init__(self, config_file: str = "config/engine.json"):
         """Initialize the voice agent engine."""
+        self.config_manager = ConfigManager(config_file)
+        self.config = self.config_manager.get_config()
+        self.sip_client: Optional[SIPClient] = None
         self.running = False
-        self.sessions = {}
+        self.active_calls: Dict[str, CallInfo] = {}
         
-    async def start(self) -> None:
+        # Setup signal handlers for graceful shutdown
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        
+        logger.info("Voice Agent Engine initialized")
+    
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals."""
+        logger.info(f"Received signal {signum}, initiating shutdown...")
+        asyncio.create_task(self.stop())
+    
+    async def start(self) -> bool:
         """Start the voice agent engine."""
-        logger.info("Starting Asterisk AI Voice Agent Engine...")
-        self.running = True
-        
-        # TODO: Initialize SIP client
-        # TODO: Initialize audio processor
-        # TODO: Initialize AI providers
-        # TODO: Start health monitoring
-        
-        logger.info("Voice Agent Engine started successfully")
-        
-    async def stop(self) -> None:
+        try:
+            logger.info("Starting Voice Agent Engine...")
+            
+            # Create SIP configuration from loaded config
+            sip_config = SIPConfig(
+                host=self.config.integration.sip_host,
+                port=self.config.integration.sip_port,
+                extension=self.config.integration.sip_extension,
+                password=self.config.integration.sip_password,
+                codecs=self.config.integration.sip_codecs,
+                transport=self.config.integration.sip_transport,
+                local_ip=self.config.integration.get('sip_local_ip', '0.0.0.0'),
+                local_port=self.config.integration.get('sip_local_port', 5060),
+                rtp_port_range=tuple(self.config.integration.get('sip_rtp_port_range', [10000, 20000])),
+                registration_interval=self.config.integration.get('sip_registration_interval', 3600),
+                call_timeout=self.config.integration.get('sip_call_timeout', 30)
+            )
+            
+            # Create and start SIP client
+            self.sip_client = SIPClient(sip_config)
+            
+            # Add call handlers
+            self.sip_client.add_registration_handler(self._on_registration_change)
+            
+            # Start SIP client
+            if not await self.sip_client.start():
+                logger.error("Failed to start SIP client")
+                return False
+            
+            self.running = True
+            logger.info("Voice Agent Engine started successfully")
+            
+            # Start main event loop
+            await self._main_loop()
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to start Voice Agent Engine: {e}")
+            return False
+    
+    async def stop(self):
         """Stop the voice agent engine."""
         logger.info("Stopping Voice Agent Engine...")
         self.running = False
         
-        # TODO: Clean up resources
-        # TODO: Stop all sessions
-        # TODO: Close connections
+        if self.sip_client:
+            await self.sip_client.stop()
+            self.sip_client = None
         
         logger.info("Voice Agent Engine stopped")
+    
+    async def _main_loop(self):
+        """Main event loop for the voice agent."""
+        logger.info("Voice Agent Engine main loop started")
         
-    async def handle_call(self, call_id: str, caller_id: str) -> None:
-        """Handle an incoming call."""
-        logger.info(f"Handling call {call_id} from {caller_id}")
+        try:
+            while self.running:
+                # Update active calls
+                if self.sip_client:
+                    self.active_calls = self.sip_client.get_all_calls()
+                
+                # Process active calls
+                await self._process_active_calls()
+                
+                # Sleep briefly to prevent excessive CPU usage
+                await asyncio.sleep(0.1)
+                
+        except Exception as e:
+            logger.error(f"Error in main loop: {e}")
+        finally:
+            logger.info("Voice Agent Engine main loop ended")
+    
+    async def _process_active_calls(self):
+        """Process all active calls."""
+        for call_id, call_info in self.active_calls.items():
+            try:
+                await self._handle_call(call_id, call_info)
+            except Exception as e:
+                logger.error(f"Error processing call {call_id}: {e}")
+    
+    async def _handle_call(self, call_id: str, call_info: CallInfo):
+        """Handle a specific call."""
+        # This is where we would integrate with:
+        # 1. Audio processing (VAD, noise suppression, echo cancellation)
+        # 2. AI provider (OpenAI Realtime API, Azure Speech, etc.)
+        # 3. Conversation management
         
-        # TODO: Create call session
-        # TODO: Start conversation loop
-        # TODO: Process audio streams
+        # For now, just log the call information
+        if call_info.state == "ringing":
+            logger.info(f"Call {call_id} is ringing from {call_info.from_user}")
+            # In a real implementation, we would answer the call here
+            # and start the conversation loop
+        elif call_info.state == "connected":
+            logger.info(f"Call {call_id} is connected with {call_info.from_user}")
+            # In a real implementation, we would process audio here
+        elif call_info.state == "ended":
+            logger.info(f"Call {call_id} has ended")
+    
+    def _on_registration_change(self, registered: bool):
+        """Handle SIP registration status changes."""
+        if registered:
+            logger.info("✅ Successfully registered with Asterisk")
+        else:
+            logger.warning("❌ Unregistered from Asterisk")
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get the current status of the voice agent engine."""
+        status = {
+            "running": self.running,
+            "registered": self.sip_client.is_registered() if self.sip_client else False,
+            "active_calls": len(self.active_calls),
+            "calls": {}
+        }
         
-    async def end_call(self, call_id: str) -> None:
-        """End a call session."""
-        logger.info(f"Ending call {call_id}")
+        # Add call details
+        for call_id, call_info in self.active_calls.items():
+            status["calls"][call_id] = {
+                "from_user": call_info.from_user,
+                "to_user": call_info.to_user,
+                "state": call_info.state,
+                "codec": call_info.codec,
+                "duration": int(asyncio.get_event_loop().time() - call_info.start_time)
+            }
         
-        # TODO: Clean up call session
-        # TODO: Close audio streams
+        return status
 
 
 async def main():
-    """Main entry point for the application."""
-    # TODO: Load configuration
-    # TODO: Set up logging
-    # TODO: Initialize engine
-    # TODO: Start engine
-    
+    """Main entry point for the voice agent engine."""
+    # Create engine instance
     engine = VoiceAgentEngine()
-    await engine.start()
     
     try:
-        # Keep running until interrupted
-        while engine.running:
-            await asyncio.sleep(1)
+        # Start the engine
+        await engine.start()
     except KeyboardInterrupt:
-        logger.info("Received interrupt signal")
+        logger.info("Received keyboard interrupt")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
     finally:
+        # Stop the engine
         await engine.stop()
 
 
 if __name__ == "__main__":
+    # Run the main function
     asyncio.run(main())
 
 

@@ -216,6 +216,81 @@ class SIPClient:
             logger.error(f"Unregistration error: {e}")
             return False
     
+    async def make_call(self, destination: str, audio_handler: Optional[Callable] = None) -> Optional[str]:
+        """Make an outbound call to the specified destination."""
+        try:
+            call_id = f"call-{random.randint(100000, 999999)}"
+            
+            # Build INVITE message
+            invite_msg = self._build_invite_message(destination, call_id)
+            await self._send_message(invite_msg)
+            
+            # Wait for response
+            response = await self._wait_for_response()
+            
+            if response and "200" in response:
+                # Parse SDP to get RTP information
+                rtp_info = self._parse_sdp(response)
+                
+                # Create call info
+                call_info = CallInfo(
+                    call_id=call_id,
+                    from_user=self.config.extension,
+                    to_user=destination,
+                    local_rtp_port=self.rtp_port,
+                    remote_rtp_port=rtp_info.get('port', 0),
+                    remote_ip=rtp_info.get('ip', ''),
+                    codec=rtp_info.get('codec', 'ulaw'),
+                    start_time=time.time()
+                )
+                
+                self.calls[call_id] = call_info
+                if audio_handler:
+                    self.call_handlers[call_id] = audio_handler
+                
+                # Send ACK
+                ack_msg = self._build_ack_message(call_id, response)
+                await self._send_message(ack_msg)
+                
+                # Start RTP audio handling
+                asyncio.create_task(self._handle_rtp_audio(call_id))
+                
+                logger.info(f"Call {call_id} established to {destination}")
+                return call_id
+            else:
+                logger.error(f"Call failed: {response}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Make call error: {e}")
+            return None
+    
+    async def end_call(self, call_id: str) -> bool:
+        """End the specified call."""
+        try:
+            if call_id not in self.calls:
+                return False
+            
+            # Send BYE message
+            bye_msg = self._build_bye_message(call_id)
+            await self._send_message(bye_msg)
+            
+            # Wait for response
+            response = await self._wait_for_response()
+            
+            # Cleanup call
+            if call_id in self.calls:
+                del self.calls[call_id]
+            if call_id in self.call_handlers:
+                del self.call_handlers[call_id]
+            
+            logger.info(f"Call {call_id} ended")
+            return True
+            
+        except Exception as e:
+            logger.error(f"End call error: {e}")
+            return False
+    
     def add_registration_handler(self, handler: Callable):
         """Add a handler for registration status changes."""
         self.registration_handlers.append(handler)
@@ -263,6 +338,132 @@ Content-Length: 0\r
 \r
 """
         return message
+    
+    def _build_invite_message(self, destination: str, call_id: str) -> str:
+        """Build a SIP INVITE message."""
+        via = f"Via: SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
+        from_header = f"From: <sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
+        to_header = f"To: <sip:{destination}@{self.config.host}>"
+        
+        # Build SDP for audio
+        sdp = self._build_sdp()
+        
+        message = f"""INVITE sip:{destination}@{self.config.host} SIP/2.0\r
+Via: {via}\r
+From: {from_header}\r
+To: {to_header}\r
+Call-ID: {call_id}\r
+CSeq: {self._sequence_number} INVITE\r
+Contact: <sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>\r
+Content-Type: application/sdp\r
+Content-Length: {len(sdp)}\r
+Max-Forwards: 70\r
+User-Agent: Asterisk-AI-Voice-Agent/1.0\r
+\r
+{sdp}"""
+        return message
+    
+    def _build_ack_message(self, call_id: str, response: str) -> str:
+        """Build a SIP ACK message."""
+        via = f"Via: SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
+        from_header = f"From: <sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
+        to_header = f"To: <sip:{self.config.extension}@{self.config.host}>"
+        
+        message = f"""ACK sip:{self.config.extension}@{self.config.host} SIP/2.0\r
+Via: {via}\r
+From: {from_header}\r
+To: {to_header}\r
+Call-ID: {call_id}\r
+CSeq: {self._sequence_number} ACK\r
+Max-Forwards: 70\r
+User-Agent: Asterisk-AI-Voice-Agent/1.0\r
+\r
+"""
+        return message
+    
+    def _build_bye_message(self, call_id: str) -> str:
+        """Build a SIP BYE message."""
+        via = f"Via: SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
+        from_header = f"From: <sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
+        to_header = f"To: <sip:{self.config.extension}@{self.config.host}>"
+        
+        message = f"""BYE sip:{self.config.extension}@{self.config.host} SIP/2.0\r
+Via: {via}\r
+From: {from_header}\r
+To: {to_header}\r
+Call-ID: {call_id}\r
+CSeq: {self._sequence_number} BYE\r
+Max-Forwards: 70\r
+User-Agent: Asterisk-AI-Voice-Agent/1.0\r
+\r
+"""
+        return message
+    
+    def _build_sdp(self) -> str:
+        """Build SDP (Session Description Protocol) for audio."""
+        # Get local IP address
+        local_ip = self.config.local_ip
+        if local_ip == "0.0.0.0":
+            # Get actual local IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.connect((self.config.host, 80))
+                local_ip = s.getsockname()[0]
+            except:
+                local_ip = "127.0.0.1"
+            finally:
+                s.close()
+        
+        # Build codec list
+        codec_list = []
+        for codec in self.config.codecs:
+            if codec == "ulaw":
+                codec_list.append("0 PCMU/8000")
+            elif codec == "alaw":
+                codec_list.append("8 PCMA/8000")
+            elif codec == "g722":
+                codec_list.append("9 G722/8000")
+        
+        sdp = f"""v=0\r
+o=asterisk-ai-voice-agent 1234567890 1234567890 IN IP4 {local_ip}\r
+s=Asterisk AI Voice Agent\r
+c=IN IP4 {local_ip}\r
+t=0 0\r
+m=audio {self.rtp_port} RTP/AVP {' '.join([c.split()[0] for c in codec_list])}\r
+a=rtpmap:0 PCMU/8000\r
+a=rtpmap:8 PCMA/8000\r
+a=rtpmap:9 G722/8000\r
+a=sendrecv\r
+"""
+        return sdp
+    
+    def _parse_sdp(self, response: str) -> Dict[str, Any]:
+        """Parse SDP from SIP response to extract RTP information."""
+        rtp_info = {}
+        
+        # Extract IP address
+        ip_match = re.search(r'c=IN IP4 (\d+\.\d+\.\d+\.\d+)', response)
+        if ip_match:
+            rtp_info['ip'] = ip_match.group(1)
+        
+        # Extract RTP port
+        port_match = re.search(r'm=audio (\d+) RTP/AVP', response)
+        if port_match:
+            rtp_info['port'] = int(port_match.group(1))
+        
+        # Extract codec
+        codec_match = re.search(r'a=rtpmap:(\d+) (\w+)/', response)
+        if codec_match:
+            codec_num = codec_match.group(1)
+            codec_name = codec_match.group(2)
+            if codec_num == "0":
+                rtp_info['codec'] = "ulaw"
+            elif codec_num == "8":
+                rtp_info['codec'] = "alaw"
+            elif codec_num == "9":
+                rtp_info['codec'] = "g722"
+        
+        return rtp_info
     
     def _generate_call_id(self) -> str:
         """Generate a unique Call-ID."""
@@ -411,6 +612,17 @@ Content-Length: 0\r
             
             self.calls[call_id] = call_info
             
+            # Send 180 Ringing
+            ringing_msg = self._build_ringing_response(call_id, message)
+            await self._send_message(ringing_msg)
+            
+            # Send 200 OK with SDP
+            ok_msg = self._build_ok_response(call_id, message)
+            await self._send_message(ok_msg)
+            
+            # Start RTP audio handling
+            asyncio.create_task(self._handle_rtp_audio(call_id))
+            
             logger.info(f"Incoming call {call_id} from {from_user}")
             
         except Exception as e:
@@ -430,6 +642,87 @@ Content-Length: 0\r
                 
         except Exception as e:
             logger.error(f"Error handling call termination: {e}")
+    
+    def _build_ringing_response(self, call_id: str, original_message: str) -> str:
+        """Build a 180 Ringing response."""
+        # Extract Via header from original message
+        via_match = re.search(r'Via: ([^\r\n]+)', original_message)
+        via = via_match.group(1) if via_match else ""
+        
+        # Extract From and To headers
+        from_match = re.search(r'From: ([^\r\n]+)', original_message)
+        to_match = re.search(r'To: ([^\r\n]+)', original_message)
+        
+        from_header = from_match.group(1) if from_match else ""
+        to_header = to_match.group(1) if to_match else ""
+        
+        message = f"""SIP/2.0 180 Ringing\r
+Via: {via}\r
+From: {from_header}\r
+To: {to_header}\r
+Call-ID: {call_id}\r
+CSeq: 1 INVITE\r
+Content-Length: 0\r
+\r
+"""
+        return message
+    
+    def _build_ok_response(self, call_id: str, original_message: str) -> str:
+        """Build a 200 OK response with SDP."""
+        # Extract Via header from original message
+        via_match = re.search(r'Via: ([^\r\n]+)', original_message)
+        via = via_match.group(1) if via_match else ""
+        
+        # Extract From and To headers
+        from_match = re.search(r'From: ([^\r\n]+)', original_message)
+        to_match = re.search(r'To: ([^\r\n]+)', original_message)
+        
+        from_header = from_match.group(1) if from_match else ""
+        to_header = to_match.group(1) if to_match else ""
+        
+        # Build SDP
+        sdp = self._build_sdp()
+        
+        message = f"""SIP/2.0 200 OK\r
+Via: {via}\r
+From: {from_header}\r
+To: {to_header}\r
+Call-ID: {call_id}\r
+CSeq: 1 INVITE\r
+Contact: <sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>\r
+Content-Type: application/sdp\r
+Content-Length: {len(sdp)}\r
+\r
+{sdp}"""
+        return message
+    
+    async def _handle_rtp_audio(self, call_id: str):
+        """Handle RTP audio for a call."""
+        try:
+            if call_id not in self.calls:
+                return
+            
+            call_info = self.calls[call_id]
+            logger.info(f"Starting RTP audio handling for call {call_id}")
+            
+            # This is a placeholder for RTP audio handling
+            # In a real implementation, this would:
+            # 1. Receive RTP packets from the remote party
+            # 2. Decode audio using the negotiated codec
+            # 3. Process audio (VAD, noise suppression, etc.)
+            # 4. Send audio to AI provider
+            # 5. Receive audio from AI provider
+            # 6. Encode audio using the negotiated codec
+            # 7. Send RTP packets to the remote party
+            
+            # For now, just log that RTP handling started
+            while call_id in self.calls and self.running:
+                await asyncio.sleep(1)
+            
+            logger.info(f"RTP audio handling ended for call {call_id}")
+            
+        except Exception as e:
+            logger.error(f"Error in RTP audio handling for call {call_id}: {e}")
     
     async def _registration_loop(self):
         """Periodic registration refresh loop."""

@@ -1,5 +1,8 @@
 """
 Configuration manager with hot-reload capability.
+
+This module provides the main configuration management functionality,
+including loading from files, environment variables, and hot-reload support.
 """
 
 import json
@@ -43,7 +46,15 @@ class ConfigFileHandler(FileSystemEventHandler):
 
 
 class ConfigManager:
-    """Configuration manager with hot-reload support."""
+    """
+    Configuration manager with hot-reload support.
+    
+    This class manages the application configuration, including:
+    - Loading from JSON files and environment variables
+    - Hot-reload when configuration files change
+    - Validation and error handling
+    - Callback notifications for configuration changes
+    """
     
     def __init__(self, config_file: str = "config/engine.json"):
         self.config_file_path = Path(config_file)
@@ -57,7 +68,12 @@ class ConfigManager:
         self.load_config()
     
     def load_config(self) -> VoiceAgentConfig:
-        """Load configuration from file and environment variables."""
+        """
+        Load configuration from file and environment variables.
+        
+        Returns:
+            VoiceAgentConfig: The loaded configuration
+        """
         try:
             # Load from file if it exists
             if self.config_file_path.exists():
@@ -82,7 +98,12 @@ class ConfigManager:
             return self.config
     
     async def reload_config(self) -> VoiceAgentConfig:
-        """Reload configuration from file and notify callbacks."""
+        """
+        Reload configuration from file and notify callbacks.
+        
+        Returns:
+            VoiceAgentConfig: The reloaded configuration
+        """
         async with self._lock:
             try:
                 old_config = self.config
@@ -106,7 +127,15 @@ class ConfigManager:
                 return self.config
     
     def save_config(self, config: Optional[VoiceAgentConfig] = None) -> bool:
-        """Save configuration to file."""
+        """
+        Save configuration to file.
+        
+        Args:
+            config: Configuration to save. If None, saves current config.
+            
+        Returns:
+            bool: True if saved successfully, False otherwise.
+        """
         try:
             config_to_save = config or self.config
             
@@ -127,11 +156,21 @@ class ConfigManager:
             return False
     
     def add_callback(self, callback: Callable[[VoiceAgentConfig], None]) -> None:
-        """Add a callback function to be called when configuration changes."""
+        """
+        Add a callback function to be called when configuration changes.
+        
+        Args:
+            callback: Function to call with new configuration
+        """
         self.callbacks.append(callback)
     
     def remove_callback(self, callback: Callable[[VoiceAgentConfig], None]) -> None:
-        """Remove a callback function."""
+        """
+        Remove a callback function.
+        
+        Args:
+            callback: Function to remove
+        """
         if callback in self.callbacks:
             self.callbacks.remove(callback)
     
@@ -170,7 +209,15 @@ class ConfigManager:
         return self.config
     
     def update_config(self, updates: Dict[str, Any]) -> bool:
-        """Update configuration with new values."""
+        """
+        Update configuration with new values.
+        
+        Args:
+            updates: Dictionary of configuration updates
+            
+        Returns:
+            bool: True if updated successfully, False otherwise.
+        """
         try:
             # Create new configuration with updates
             current_dict = self.config.dict()
@@ -190,7 +237,12 @@ class ConfigManager:
             return False
     
     def validate_config(self) -> tuple[bool, List[str]]:
-        """Validate the current configuration."""
+        """
+        Validate the current configuration.
+        
+        Returns:
+            tuple: (is_valid, error_messages)
+        """
         try:
             # Try to create a new instance to validate
             VoiceAgentConfig(**self.config.dict())
@@ -199,7 +251,12 @@ class ConfigManager:
             return False, [str(e)]
     
     def get_environment_variables(self) -> Dict[str, str]:
-        """Get all environment variables that affect configuration."""
+        """
+        Get all environment variables that affect configuration.
+        
+        Returns:
+            Dict[str, str]: Environment variables and their values
+        """
         env_vars = {}
         prefix = "VOICE_AGENT_"
         
@@ -210,7 +267,15 @@ class ConfigManager:
         return env_vars
     
     def export_config(self, include_secrets: bool = False) -> Dict[str, Any]:
-        """Export configuration as a dictionary."""
+        """
+        Export configuration as a dictionary.
+        
+        Args:
+            include_secrets: Whether to include secret values
+            
+        Returns:
+            Dict[str, Any]: Configuration dictionary
+        """
         config_dict = self.config.dict()
         
         if not include_secrets:

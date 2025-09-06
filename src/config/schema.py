@@ -1,5 +1,8 @@
 """
 Configuration schema definitions using Pydantic v2.
+
+This module defines the configuration structure for the Asterisk AI Voice Agent,
+including validation rules, default values, and environment variable mapping.
 """
 
 from typing import Optional, List, Dict, Any, Literal
@@ -132,12 +135,12 @@ class VoiceAgentConfig(BaseSettings):
     def validate_ai_provider(cls, v):
         """Validate AI provider configuration."""
         # Only validate if api_key is provided (not empty)
-        
-        # Provider-specific validation
-        if v.provider == "azure" and not v.azure_endpoint:
-            raise ValueError("Azure endpoint is required for Azure provider")
-        if v.provider == "azure" and not v.azure_region:
-            raise ValueError("Azure region is required for Azure provider")
+        if v.api_key and v.api_key.strip():
+            # Provider-specific validation
+            if v.provider == "azure" and not v.azure_endpoint:
+                raise ValueError("Azure endpoint is required for Azure provider")
+            if v.provider == "azure" and not v.azure_region:
+                raise ValueError("Azure region is required for Azure provider")
             
         return v
     
