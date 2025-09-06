@@ -82,6 +82,9 @@ class ConfigManager:
             else:
                 file_config = {}
             
+            # Remove config_file from file_config to avoid duplicate parameter
+            file_config.pop('config_file', None)
+            
             # Create configuration with file and environment overrides
             self.config = VoiceAgentConfig(
                 config_file=str(self.config_file_path),
