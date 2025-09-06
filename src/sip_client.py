@@ -51,7 +51,7 @@ class SIPResponseCode(Enum):
 class SIPConfig:
     """SIP configuration parameters."""
     host: str
-    port: int = 15060
+    port: int = 5060
     extension: str = "3000"
     password: str = "AIAgent2025"
     transport: str = "udp"  # udp, tcp, tls
