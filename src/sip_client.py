@@ -222,10 +222,10 @@ class SIPClient:
     
     def _build_register_message(self) -> str:
         """Build a SIP REGISTER message."""
-        via = f"Via: SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
-        from_header = f"From: <sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
-        to_header = f"To: <sip:{self.config.extension}@{self.config.host}>"
-        contact = f"Contact: <sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>"
+        via = f"SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
+        from_header = f"<sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
+        to_header = f"<sip:{self.config.extension}@{self.config.host}>"
+        contact = f"<sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>"
         
         message = f"""REGISTER sip:{self.config.host} SIP/2.0\r
 Via: {via}\r
@@ -244,10 +244,10 @@ Content-Length: 0\r
     
     def _build_unregister_message(self) -> str:
         """Build a SIP UNREGISTER message (REGISTER with Expires: 0)."""
-        via = f"Via: SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
-        from_header = f"From: <sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
-        to_header = f"To: <sip:{self.config.extension}@{self.config.host}>"
-        contact = f"Contact: <sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>"
+        via = f"SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
+        from_header = f"<sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
+        to_header = f"<sip:{self.config.extension}@{self.config.host}>"
+        contact = f"<sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>"
         
         message = f"""REGISTER sip:{self.config.host} SIP/2.0\r
 Via: {via}\r
@@ -314,10 +314,10 @@ Content-Length: 0\r
             # Build authenticated REGISTER message
             auth_header = f'Authorization: Digest username="{self.config.extension}", realm="{realm}", nonce="{nonce}", uri="sip:{self.config.host}", response="{response_hash}"'
             
-            via = f"Via: SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
-            from_header = f"From: <sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
-            to_header = f"To: <sip:{self.config.extension}@{self.config.host}>"
-            contact = f"Contact: <sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>"
+            via = f"SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
+            from_header = f"<sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
+            to_header = f"<sip:{self.config.extension}@{self.config.host}>"
+            contact = f"<sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>"
             
             message = f"""REGISTER sip:{self.config.host} SIP/2.0\r
 Via: {via}\r
