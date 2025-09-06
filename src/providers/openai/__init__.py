@@ -22,6 +22,24 @@ from .stt_handler import (
     TranscriptResult
 )
 
+from .llm_handler import (
+    LLMHandler,
+    LLMManager,
+    LLMConfig,
+    LLMState,
+    LLMResponse,
+    ResponseType
+)
+
+from .tts_handler import (
+    TTSHandler,
+    TTSManager,
+    TTSConfig,
+    TTSState,
+    TTSResponse,
+    AudioFormat
+)
+
 __all__ = [
     'RealtimeClient',
     'RealtimeConfig', 
@@ -33,5 +51,17 @@ __all__ = [
     'STTManager',
     'STTConfig',
     'STTState',
-    'TranscriptResult'
+    'TranscriptResult',
+    'LLMHandler',
+    'LLMManager',
+    'LLMConfig',
+    'LLMState',
+    'LLMResponse',
+    'ResponseType',
+    'TTSHandler',
+    'TTSManager',
+    'TTSConfig',
+    'TTSState',
+    'TTSResponse',
+    'AudioFormat'
 ]

@@ -25,7 +25,19 @@ from .openai import (
     STTManager,
     STTConfig,
     STTState,
-    TranscriptResult
+    TranscriptResult,
+    LLMHandler,
+    LLMManager,
+    LLMConfig,
+    LLMState,
+    LLMResponse,
+    ResponseType,
+    TTSHandler,
+    TTSManager,
+    TTSConfig,
+    TTSState,
+    TTSResponse,
+    AudioFormat
 )
 
 __all__ = [
@@ -45,5 +57,17 @@ __all__ = [
     'STTManager',
     'STTConfig',
     'STTState',
-    'TranscriptResult'
+    'TranscriptResult',
+    'LLMHandler',
+    'LLMManager',
+    'LLMConfig',
+    'LLMState',
+    'LLMResponse',
+    'ResponseType',
+    'TTSHandler',
+    'TTSManager',
+    'TTSConfig',
+    'TTSState',
+    'TTSResponse',
+    'AudioFormat'
 ]

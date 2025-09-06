@@ -168,7 +168,7 @@
             "title": "Implement STT streaming integration",
             "description": "Implement speech-to-text streaming using OpenAI Realtime API",
             "details": "Implement the speech-to-text functionality that streams audio data to OpenAI's Realtime API and processes the returned transcriptions in real-time.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 42
           },
@@ -177,7 +177,7 @@
             "title": "Implement LLM streaming integration",
             "description": "Implement large language model streaming using OpenAI Realtime API",
             "details": "Implement the LLM functionality that sends transcribed text to OpenAI's Realtime API and processes the streaming responses for natural language understanding and generation.",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 42
           },
@@ -186,7 +186,7 @@
             "title": "Implement TTS streaming integration",
             "description": "Implement text-to-speech streaming using OpenAI Realtime API",
             "details": "Implement the text-to-speech functionality that sends generated text to OpenAI's Realtime API and processes the streaming audio responses for real-time voice output.",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 42
           },
@@ -351,7 +351,7 @@
     ],
     "metadata": {
       "created": "2025-09-05T22:39:53.948Z",
-      "updated": "2025-09-06T02:02:08.890Z",
+      "updated": "2025-09-06T02:09:54.902Z",
       "description": "Tasks for master context"
     }
   }
