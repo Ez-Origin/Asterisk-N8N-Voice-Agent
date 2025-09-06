@@ -132,8 +132,10 @@ class SIPClient:
         try:
             # Create UDP socket for SIP signaling
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            logger.info(f"Attempting to bind to {self.config.local_ip}:{self.config.local_port}")
             self.socket.bind((self.config.local_ip, self.config.local_port))
             self.socket.settimeout(1.0)  # 1 second timeout for non-blocking operation
+            logger.info(f"Successfully bound to {self.config.local_ip}:{self.config.local_port}")
             
             # Create UDP socket for RTP audio
             self.rtp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -553,10 +555,12 @@ Content-Length: 0\r
     
     async def _message_loop(self):
         """Main message processing loop."""
+        logger.info("SIP message loop started")
         while self.running:
             try:
                 self.socket.settimeout(0.1)  # Short timeout for non-blocking operation
                 data, addr = self.socket.recvfrom(4096)
+                logger.info(f"Received SIP message from {addr}: {data[:100]}...")
                 message = data.decode('utf-8')
                 
                 # Process incoming SIP message
