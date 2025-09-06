@@ -15,6 +15,13 @@ from .echo_cancellation import (
     EchoCancellationConfig,
     EchoCancellationMode
 )
+from .pipeline import (
+    AudioProcessingPipeline,
+    AudioProcessingManager,
+    AudioProcessingConfig,
+    AudioFrame,
+    PipelineMode
+)
 
 __all__ = [
     'VoiceActivityDetector', 
@@ -28,5 +35,10 @@ __all__ = [
     'EchoCanceller',
     'EchoCancellationProcessor',
     'EchoCancellationConfig',
-    'EchoCancellationMode'
+    'EchoCancellationMode',
+    'AudioProcessingPipeline',
+    'AudioProcessingManager',
+    'AudioProcessingConfig',
+    'AudioFrame',
+    'PipelineMode'
 ]

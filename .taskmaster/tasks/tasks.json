@@ -92,7 +92,7 @@
             "title": "Implement Echo Cancellation",
             "description": "Add echo cancellation using speexdsp for better call quality",
             "details": "Create echo cancellation module with adaptive filtering, configurable parameters, and real-time processing.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 39
           },
@@ -101,7 +101,7 @@
             "title": "Create Audio Processing Pipeline",
             "description": "Integrate all audio processing components into a unified pipeline",
             "details": "Create main audio processing engine that coordinates VAD, noise suppression, and echo cancellation. Add configuration options and performance monitoring.",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 39
           }
@@ -296,7 +296,7 @@
     ],
     "metadata": {
       "created": "2025-09-05T22:39:53.948Z",
-      "updated": "2025-09-06T01:20:45.349Z",
+      "updated": "2025-09-06T01:23:41.850Z",
       "description": "Tasks for master context"
     }
   }
