@@ -19,7 +19,7 @@ pydub>=0.25.1
 # speexdsp>=1.2.0  # Not available in PyPI, will use alternative
 # Alternative audio processing libraries
 # Working alternatives for noise suppression and echo cancellation
-pywebrtc>=0.1.0
+# pywebrtc>=0.1.0  # Not available in PyPI, will use aiortc instead
 # For echo cancellation, we will implement using scipy signal processing
 # For noise suppression, we will use noisereduce and librosa
 noisereduce>=3.0.0
