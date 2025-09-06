@@ -163,7 +163,7 @@ class RealtimeClient:
             
             self.websocket = await websockets.connect(
                 self.config.base_url,
-                extra_headers=headers,
+                additional_headers=headers,
                 ping_interval=20,
                 ping_timeout=10,
                 close_timeout=10
