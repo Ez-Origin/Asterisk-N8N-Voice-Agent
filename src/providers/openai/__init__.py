@@ -14,11 +14,24 @@ from .realtime_client import (
     AudioChunk
 )
 
+from .stt_handler import (
+    STTHandler,
+    STTManager,
+    STTConfig,
+    STTState,
+    TranscriptResult
+)
+
 __all__ = [
     'RealtimeClient',
     'RealtimeConfig', 
     'RealtimeMessage',
     'RealtimeMessageType',
     'VoiceType',
-    'AudioChunk'
+    'AudioChunk',
+    'STTHandler',
+    'STTManager',
+    'STTConfig',
+    'STTState',
+    'TranscriptResult'
 ]

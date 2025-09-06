@@ -159,7 +159,7 @@
             "title": "Create OpenAI Realtime API client",
             "description": "Implement the OpenAI Realtime API client class with WebSocket connection management",
             "details": "Create a client class that handles WebSocket connections to OpenAI's Realtime API, including authentication, message formatting, and connection lifecycle management.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 42
           },
@@ -168,7 +168,7 @@
             "title": "Implement STT streaming integration",
             "description": "Implement speech-to-text streaming using OpenAI Realtime API",
             "details": "Implement the speech-to-text functionality that streams audio data to OpenAI's Realtime API and processes the returned transcriptions in real-time.",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 42
           },
@@ -351,7 +351,7 @@
     ],
     "metadata": {
       "created": "2025-09-05T22:39:53.948Z",
-      "updated": "2025-09-06T01:58:52.191Z",
+      "updated": "2025-09-06T02:02:08.890Z",
       "description": "Tasks for master context"
     }
   }

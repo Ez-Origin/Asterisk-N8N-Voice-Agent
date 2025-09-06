@@ -20,7 +20,12 @@ from .openai import (
     RealtimeMessage,
     RealtimeMessageType,
     VoiceType,
-    AudioChunk
+    AudioChunk,
+    STTHandler,
+    STTManager,
+    STTConfig,
+    STTState,
+    TranscriptResult
 )
 
 __all__ = [
@@ -35,5 +40,10 @@ __all__ = [
     'RealtimeMessage',
     'RealtimeMessageType',
     'VoiceType',
-    'AudioChunk'
+    'AudioChunk',
+    'STTHandler',
+    'STTManager',
+    'STTConfig',
+    'STTState',
+    'TranscriptResult'
 ]
