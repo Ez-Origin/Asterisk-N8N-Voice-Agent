@@ -57,17 +57,17 @@ class VoiceAgentEngine:
             
             # Create SIP configuration from loaded config
             sip_config = SIPConfig(
-                host=self.config.integration.sip_host,
-                port=self.config.integration.sip_port,
-                extension=self.config.integration.sip_extension,
-                password=self.config.integration.sip_password,
-                codecs=self.config.integration.sip_codecs,
-                transport=self.config.integration.sip_transport,
-                local_ip=self.config.integration.get('sip_local_ip', '0.0.0.0'),
-                local_port=self.config.integration.get('sip_local_port', 5060),
-                rtp_port_range=tuple(self.config.integration.get('sip_rtp_port_range', [10000, 20000])),
-                registration_interval=self.config.integration.get('sip_registration_interval', 3600),
-                call_timeout=self.config.integration.get('sip_call_timeout', 30)
+                host=self.config.sip.host,
+                port=self.config.sip.port,
+                extension=self.config.sip.extension,
+                password=self.config.sip.password,
+                codecs=self.config.sip.codecs,
+                transport=self.config.sip.transport,
+                local_ip='0.0.0.0',
+                local_port=5060,
+                rtp_port_range=self.config.sip.rtp_port_range,
+                registration_interval=3600,
+                call_timeout=30
             )
             
             # Create and start SIP client

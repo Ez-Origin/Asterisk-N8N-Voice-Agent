@@ -22,7 +22,7 @@ from rich.prompt import Confirm, Prompt
 from rich import print as rprint
 
 from config.manager import ConfigManager
-from engine import VoiceAgentEngine
+from src.engine import VoiceAgentEngine
 from call_session import CallSessionManager
 from providers.openai import RealtimeClient, STTHandler, LLMHandler, TTSHandler
 
@@ -380,7 +380,7 @@ def start(
         console.print("[green]Starting Asterisk AI Voice Agent...[/green]")
         
         # Create and start engine
-        engine = VoiceAgentEngine(config)
+        engine = VoiceAgentEngine()
         
         if daemon:
             console.print("Running as daemon...")

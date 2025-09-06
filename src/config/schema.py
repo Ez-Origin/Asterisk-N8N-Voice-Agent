@@ -47,7 +47,7 @@ class AIProviderConfig(BaseSettings):
     """AI provider configuration."""
     
     provider: Literal["openai", "azure", "deepgram", "ollama"] = Field(default="openai", description="AI provider")
-    api_key: str = Field(default="", description="API key for the provider")
+    api_key: Optional[str] = Field(default="", description="API key for the provider")
     model: str = Field(default="gpt-4o", description="AI model to use")
     voice: str = Field(default="alloy", description="Voice for TTS")
     language: str = Field(default="en-US", description="Language for STT/TTS")
@@ -116,6 +116,35 @@ class VoiceAgentConfig(BaseSettings):
     security: SecurityConfig = Field(default_factory=SecurityConfig, description="Security configuration")
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig, description="Monitoring configuration")
     mcp: MCPConfig = Field(default_factory=MCPConfig, description="MCP configuration")
+    
+    @root_validator(pre=True)
+    def load_environment_variables(cls, values):
+        """Load environment variables for nested configurations."""
+        # Load SIP configuration with environment variables
+        sip_data = values.get('sip', {})
+        sip_env_vars = {}
+        for key, value in os.environ.items():
+            if key.startswith('VOICE_AGENT_SIP_'):
+                field_name = key.replace('VOICE_AGENT_SIP_', '').lower()
+                sip_env_vars[field_name] = value
+        
+        # Merge file data with environment variables (env vars take precedence)
+        sip_data.update(sip_env_vars)
+        values['sip'] = sip_data
+        
+        # Load AI provider configuration with environment variables
+        ai_data = values.get('ai_provider', {})
+        ai_env_vars = {}
+        for key, value in os.environ.items():
+            if key.startswith('VOICE_AGENT_AI_PROVIDER_'):
+                field_name = key.replace('VOICE_AGENT_AI_PROVIDER_', '').lower()
+                ai_env_vars[field_name] = value
+        
+        # Merge file data with environment variables (env vars take precedence)
+        ai_data.update(ai_env_vars)
+        values['ai_provider'] = ai_data
+        
+        return values
     
     # File paths
     config_file: str = Field(default="config/engine.json", description="Configuration file path")

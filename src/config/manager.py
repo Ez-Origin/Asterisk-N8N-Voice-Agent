@@ -85,17 +85,11 @@ class ConfigManager:
             # Remove config_file from file_config to avoid duplicate parameter
             file_config.pop('config_file', None)
             
-            # Create configuration with file and environment overrides
-            # Initialize nested BaseSettings classes with their environment variables
-            sip_config = SIPConfig(**file_config.get('sip', {}))
-            ai_provider_config = AIProviderConfig(**file_config.get('ai_provider', {}))
-            
-            # Create main configuration
+            # Create configuration - VoiceAgentConfig will handle environment variables
+            # through its root_validator
             self.config = VoiceAgentConfig(
                 config_file=str(self.config_file_path),
-                sip=sip_config,
-                ai_provider=ai_provider_config,
-                **{k: v for k, v in file_config.items() if k not in ['sip', 'ai_provider']}
+                **file_config
             )
             
             logger.info(f"Configuration loaded from {self.config_file_path}")
@@ -104,8 +98,15 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"Failed to load configuration: {e}")
             logger.warning("Using default configuration")
-            self.config = DEFAULT_CONFIG
-            return self.config
+            # Even when using default config, ensure environment variables are loaded
+            try:
+                self.config = VoiceAgentConfig()
+                logger.info("Default configuration loaded with environment variables")
+                return self.config
+            except Exception as env_error:
+                logger.error(f"Failed to load default configuration: {env_error}")
+                self.config = DEFAULT_CONFIG
+                return self.config
     
     async def reload_config(self) -> VoiceAgentConfig:
         """

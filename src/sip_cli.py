@@ -204,12 +204,12 @@ def show_status():
     
     # Create SIP configuration from loaded config
     sip_config = SIPConfig(
-        host=config.integration.sip_host,
-        port=config.integration.sip_port,
-        extension=config.integration.sip_extension,
-        password=config.integration.sip_password,
-        codecs=config.integration.sip_codecs,
-        transport=config.integration.sip_transport
+        host=config.sip.host,
+        port=config.sip.port,
+        extension=config.sip.extension,
+        password=config.sip.password,
+        codecs=config.sip.codecs,
+        transport=config.sip.transport
     )
     
     # Display configuration
