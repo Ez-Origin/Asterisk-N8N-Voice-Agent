@@ -14,7 +14,14 @@ webrtcvad>=2.0.10
 # py-webrtc-audio-processing>=0.3.0  # Package not found, will use alternative
 soundfile>=0.12.1
 pydub>=0.25.1
-
+# Noise suppression and echo cancellation
+rnnoise>=0.1.0
+speexdsp>=1.2.0
+# Alternative audio processing libraries
+noisereduce>=3.0.0
+librosa>=0.10.0
+numpy>=1.24.0
+scipy>=1.11.0
 # AI Provider Integrations
 openai>=1.40.0
 azure-cognitiveservices-speech>=1.34.0
