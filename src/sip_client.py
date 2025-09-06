@@ -51,13 +51,13 @@ class SIPResponseCode(Enum):
 class SIPConfig:
     """SIP configuration parameters."""
     host: str
-    port: int = 5060
+    port: int = 5061
     extension: str = "3000"
     password: str = "AIAgent2025"
     transport: str = "udp"  # udp, tcp, tls
     codecs: List[str] = None
     local_ip: str = "0.0.0.0"
-    local_port: int = 5060
+    local_port: int = 5061
     rtp_port_range: tuple = (10000, 20000)
     registration_interval: int = 3600  # seconds
     call_timeout: int = 30  # seconds
