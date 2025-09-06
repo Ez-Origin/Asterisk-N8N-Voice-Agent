@@ -79,20 +79,21 @@ def _show_config():
         table.add_column("Source", style="yellow")
         
         # Engine settings
-        table.add_row("Engine Mode", config.get("engine", {}).get("mode", "N/A"), "config/engine.json")
-        table.add_row("Log Level", config.get("engine", {}).get("log_level", "N/A"), "config/engine.json")
-        table.add_row("Max Calls", str(config.get("engine", {}).get("max_concurrent_calls", "N/A")), "config/engine.json")
+        table.add_row("Integration Mode", config.get("integration_mode", "N/A"), "config/engine.json")
+        table.add_row("Asterisk Version", config.get("asterisk_version", "N/A"), "config/engine.json")
+        table.add_row("Debug Mode", str(config.get("debug", "N/A")), "config/engine.json")
         
         # SIP settings
         sip_config = config.get("sip", {})
-        table.add_row("SIP Host", sip_config.get("host", "N/A"), "Environment")
-        table.add_row("SIP Extension", sip_config.get("extension", "N/A"), "Environment")
-        table.add_row("SIP Password", "***" if sip_config.get("password") else "N/A", "Environment")
+        table.add_row("SIP Host", sip_config.get("host", "N/A"), "config/engine.json")
+        table.add_row("SIP Extension", sip_config.get("extension", "N/A"), "config/engine.json")
+        table.add_row("SIP Password", "***" if sip_config.get("password") else "N/A", "config/engine.json")
         
         # AI Provider settings
-        ai_config = config.get("ai_providers", {})
-        table.add_row("OpenAI API Key", "***" if ai_config.get("openai", {}).get("api_key") else "N/A", "Environment")
-        table.add_row("Deepgram API Key", "***" if ai_config.get("deepgram", {}).get("api_key") else "N/A", "Environment")
+        ai_config = config.get("ai_provider", {})
+        table.add_row("AI Provider", ai_config.get("provider", "N/A"), "config/engine.json")
+        table.add_row("OpenAI API Key", "***" if ai_config.get("api_key") else "N/A", "Environment")
+        table.add_row("Model", ai_config.get("model", "N/A"), "config/engine.json")
         
         console.print(table)
         
@@ -120,7 +121,7 @@ def _validate_config():
                 ("sip.host", "SIP Host"),
                 ("sip.extension", "SIP Extension"),
                 ("sip.password", "SIP Password"),
-                ("ai_providers.openai.api_key", "OpenAI API Key"),
+                ("ai_provider.api_key", "OpenAI API Key"),
             ]
             
             for setting_path, display_name in required_settings:
@@ -132,9 +133,9 @@ def _validate_config():
             
             # Check optional settings
             optional_settings = [
-                ("ai_providers.deepgram.api_key", "Deepgram API Key"),
-                ("engine.log_level", "Log Level"),
-                ("engine.max_concurrent_calls", "Max Concurrent Calls"),
+                ("ai_provider.deepgram_model", "Deepgram Model"),
+                ("monitoring.log_level", "Log Level"),
+                ("monitoring.health_check_port", "Health Check Port"),
             ]
             
             for setting_path, display_name in optional_settings:
@@ -261,10 +262,13 @@ def _save_interactive_config(values: Dict[str, Any]):
     
     # Update engine.json
     engine_config = {
-        "engine": {
-            "mode": "sip",
+        "integration_mode": "sip",
+        "asterisk_version": "16",
+        "debug": False,
+        "monitoring": {
             "log_level": values["log_level"],
-            "max_concurrent_calls": values["max_calls"]
+            "health_check_port": 8000,
+            "metrics_enabled": True
         }
     }
     
@@ -373,7 +377,7 @@ def start(
         
         # Override log level if specified
         if log_level:
-            config["engine"]["log_level"] = log_level
+            config["monitoring"]["log_level"] = log_level
         
         console.print("[green]Starting Asterisk AI Voice Agent...[/green]")
         
@@ -444,7 +448,7 @@ def test(
 def _test_openai_provider(test_type: str):
     """Test OpenAI provider functionality."""
     config = config_manager.get_config()
-    api_key = config.get("ai_providers", {}).get("openai", {}).get("api_key")
+    api_key = config.get("ai_provider", {}).get("api_key")
     
     if not api_key:
         console.print("[red]OpenAI API key not configured[/red]")
