@@ -9,6 +9,12 @@ from .noise_suppression import (
     NoiseSuppressionConfig, 
     NoiseSuppressionMode
 )
+from .echo_cancellation import (
+    EchoCanceller,
+    EchoCancellationProcessor,
+    EchoCancellationConfig,
+    EchoCancellationMode
+)
 
 __all__ = [
     'VoiceActivityDetector', 
@@ -18,5 +24,9 @@ __all__ = [
     'NoiseSuppressor',
     'NoiseSuppressionProcessor', 
     'NoiseSuppressionConfig',
-    'NoiseSuppressionMode'
+    'NoiseSuppressionMode',
+    'EchoCanceller',
+    'EchoCancellationProcessor',
+    'EchoCancellationConfig',
+    'EchoCancellationMode'
 ]

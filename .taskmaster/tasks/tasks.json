@@ -83,7 +83,7 @@
             "title": "Implement Noise Suppression",
             "description": "Add noise suppression using rnnoise for cleaner audio",
             "details": "Create noise suppression module with real-time processing, configurable levels, and integration with audio pipeline.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 39
           },
@@ -92,7 +92,7 @@
             "title": "Implement Echo Cancellation",
             "description": "Add echo cancellation using speexdsp for better call quality",
             "details": "Create echo cancellation module with adaptive filtering, configurable parameters, and real-time processing.",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 39
           },
@@ -296,7 +296,7 @@
     ],
     "metadata": {
       "created": "2025-09-05T22:39:53.948Z",
-      "updated": "2025-09-06T01:12:27.995Z",
+      "updated": "2025-09-06T01:20:45.349Z",
       "description": "Tasks for master context"
     }
   }
