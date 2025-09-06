@@ -305,19 +305,18 @@ class WebSocketManager:
                 payload = self._prepare_generic_message(message)
             
             # Send message
-            if isinstance(payload.get('data', ''), bytes):
-                # For binary data, send as binary
-                await self.websocket.send_bytes(payload['data'])
+            if payload.get('_is_binary', False) and isinstance(payload.get('audio'), bytes):
+                # For binary audio data, send as binary
+                await self.websocket.send_bytes(payload['audio'])
+                self.stats['bytes_sent'] += len(payload['audio'])
             else:
                 # For text data, send as JSON
-                await self.websocket.send_str(json.dumps(payload))
+                json_payload = json.dumps(payload)
+                await self.websocket.send_str(json_payload)
+                self.stats['bytes_sent'] += len(json_payload.encode())
             
             # Update statistics
             self.stats['messages_sent'] += 1
-            if isinstance(payload.get('data', ''), bytes):
-                self.stats['bytes_sent'] += len(payload['data'])
-            else:
-                self.stats['bytes_sent'] += len(json.dumps(payload).encode())
             
             if self.config.enable_logging:
                 logger.debug(f"Sent message {message_id} of type {message_type.value}")
@@ -391,10 +390,12 @@ class WebSocketManager:
     def _prepare_openai_message(self, message: WebSocketMessage) -> Dict[str, Any]:
         """Prepare message for OpenAI Realtime API format."""
         if message.message_type == MessageType.AUDIO:
+            # For audio data, return a special structure that indicates binary data
             return {
                 "type": "input_audio_buffer.append",
-                "audio": message.data,
-                "timestamp": message.timestamp
+                "audio": message.data,  # This will be bytes
+                "timestamp": message.timestamp,
+                "_is_binary": True  # Flag to indicate this contains binary data
             }
         elif message.message_type == MessageType.TEXT:
             return {
