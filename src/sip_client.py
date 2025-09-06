@@ -664,11 +664,22 @@ Content-Length: 0\r
             call_id = call_id_match.group(1).strip()
             cseq = cseq_match.group(1).strip()
             
-            # Send 200 OK response
+            # Extract Via header from the original request to echo it back
+            via_match = re.search(r'Via: ([^\r\n]+)', message)
+            via_header = via_match.group(1) if via_match else "SIP/2.0/UDP 172.17.0.1:5060;rport;branch=z9hG4bKPje2"
+            
+            # Extract From and To headers from the original request
+            from_match = re.search(r'From: ([^\r\n]+)', message)
+            to_match = re.search(r'To: ([^\r\n]+)', message)
+            
+            from_header = from_match.group(1) if from_match else "<sip:3000@voiprnd.nemtclouddispatch.com>;tag=as12345678"
+            to_header = to_match.group(1) if to_match else "<sip:3000@172.17.0.3:15060>;tag=as87654321"
+            
+            # Send 200 OK response with proper headers
             response = f"""SIP/2.0 200 OK\r
-Via: SIP/2.0/UDP 172.17.0.1:5060;rport;branch=z9hG4bKPje2\r
-From: <sip:3000@voiprnd.nemtclouddispatch.com>;tag=as12345678\r
-To: <sip:3000@172.17.0.3:15060>;tag=as87654321\r
+Via: {via_header}\r
+From: {from_header}\r
+To: {to_header}\r
 Call-ID: {call_id}\r
 CSeq: {cseq} OPTIONS\r
 Contact: <sip:3000@172.17.0.3:15060>\r
