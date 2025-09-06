@@ -46,26 +46,18 @@ def test_cli_config_show():
     
     # Mock the config manager
     with patch('cli.config_manager') as mock_config_manager:
-        mock_config_manager.get_config.return_value = {
-            "engine": {
-                "mode": "sip",
-                "log_level": "INFO",
-                "max_concurrent_calls": 10
-            },
-            "sip": {
-                "host": "voiprnd.nemtclouddispatch.com",
-                "extension": "3000",
-                "password": "test_password"
-            },
-            "ai_providers": {
-                "openai": {
-                    "api_key": "test_api_key"
-                },
-                "deepgram": {
-                    "api_key": "test_deepgram_key"
-                }
-            }
-        }
+        # Create a mock config object with the required attributes
+        mock_config = MagicMock()
+        mock_config.integration_mode = "sip"
+        mock_config.asterisk_version = "16"
+        mock_config.debug = False
+        mock_config.sip.host = "voiprnd.nemtclouddispatch.com"
+        mock_config.sip.extension = "3000"
+        mock_config.sip.password = "test_password"
+        mock_config.ai_provider.provider = "openai"
+        mock_config.ai_provider.api_key = "test_api_key"
+        mock_config.ai_provider.model = "gpt-4o"
+        mock_config_manager.get_config.return_value = mock_config
         
         result = runner.invoke(app, ["config", "--show"])
         
@@ -82,23 +74,26 @@ def test_cli_config_validate():
     
     # Mock the config manager
     with patch('cli.config_manager') as mock_config_manager:
-        mock_config_manager.get_config.return_value = {
-            "engine": {
-                "mode": "sip",
-                "log_level": "INFO",
-                "max_concurrent_calls": 10
-            },
-            "sip": {
-                "host": "voiprnd.nemtclouddispatch.com",
-                "extension": "3000",
-                "password": "test_password"
-            },
-            "ai_providers": {
-                "openai": {
-                    "api_key": "test_api_key"
-                }
-            }
+        # Create a mock config object with the required attributes
+        mock_config = MagicMock()
+        mock_config.integration_mode = "sip"
+        mock_config.asterisk_version = "16"
+        mock_config.debug = False
+        mock_config.sip.host = "voiprnd.nemtclouddispatch.com"
+        mock_config.sip.extension = "3000"
+        mock_config.sip.password = "test_password"
+        mock_config.ai_provider.provider = "openai"
+        mock_config.ai_provider.api_key = "test_api_key"
+        mock_config.ai_provider.model = "gpt-4o"
+        mock_config.monitoring.log_level = "INFO"
+        mock_config.monitoring.health_check_port = 8000
+        mock_config.ai_provider.deepgram_model = "nova-2"
+        mock_config.dict.return_value = {
+            "sip": {"host": "voiprnd.nemtclouddispatch.com", "extension": "3000", "password": "test_password"},
+            "ai_provider": {"api_key": "test_api_key", "deepgram_model": "nova-2"},
+            "monitoring": {"log_level": "INFO", "health_check_port": 8000}
         }
+        mock_config_manager.get_config.return_value = mock_config
         
         result = runner.invoke(app, ["config", "--validate"])
         
@@ -128,13 +123,10 @@ def test_cli_test_openai():
     with patch('cli.config_manager') as mock_config_manager, \
          patch('cli.RealtimeClient') as mock_realtime_client:
         
-        mock_config_manager.get_config.return_value = {
-            "ai_providers": {
-                "openai": {
-                    "api_key": "test_api_key"
-                }
-            }
-        }
+        # Create a mock config object
+        mock_config = MagicMock()
+        mock_config.ai_provider.api_key = "test_api_key"
+        mock_config_manager.get_config.return_value = mock_config
         
         result = runner.invoke(app, ["test", "--provider", "openai"])
         
