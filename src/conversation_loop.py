@@ -306,6 +306,9 @@ class ConversationLoop:
             self.is_running = True
             self.last_activity_time = time.time()
             
+            # Start listening for speech
+            await self._start_listening()
+            
             # Start the main conversation loop
             await self._conversation_loop()
             
@@ -428,15 +431,14 @@ class ConversationLoop:
     async def _start_listening(self):
         """Start listening for speech."""
         try:
-            if not self.stt_handler:
+            if not self.stt_handler or self.state != ConversationState.LISTENING:
                 return
-            
-            self._update_state(ConversationState.LISTENING)
             
             # Start STT listening
             success = await self.stt_handler.start_listening()
             if not success:
                 logger.error("Failed to start STT listening")
+                await self._handle_error("Failed to start STT listening", Exception("STT start failed"))
                 return
             
             logger.info("Started listening for speech")
@@ -458,8 +460,14 @@ class ConversationLoop:
                 await self.stt_handler.process_audio(self.current_audio_buffer)
                 self.current_audio_buffer = b""
             
-            # Wait for STT to complete
-            await asyncio.sleep(0.5)  # Give STT time to process
+            # Stop STT listening to process the audio
+            await self.stt_handler.stop_listening()
+            
+            # Wait for STT to complete processing
+            max_wait_time = 5.0  # Maximum wait time for STT
+            wait_start = time.time()
+            while self.stt_handler.is_listening() and (time.time() - wait_start) < max_wait_time:
+                await asyncio.sleep(0.1)
             
             # Get transcript
             transcript = self.stt_handler.get_current_transcript()
@@ -475,14 +483,19 @@ class ConversationLoop:
                 
                 # Generate AI response
                 await self._generate_response(transcript.text)
+            else:
+                logger.warning("No transcript received from STT")
+                # Return to listening state
+                self._update_state(ConversationState.LISTENING)
             
             # Reset for next speech
             self.silence_start_time = None
-            self._update_state(ConversationState.LISTENING)
             
         except Exception as e:
             logger.error(f"Error processing speech: {e}")
             await self._handle_error("Speech processing error", e)
+            # Return to listening state on error
+            self._update_state(ConversationState.LISTENING)
     
     async def _generate_response(self, user_input: str):
         """Generate AI response to user input."""
@@ -499,11 +512,22 @@ class ConversationLoop:
             success = await self.llm_handler.create_response(["text", "audio"])
             if not success:
                 logger.error("Failed to create LLM response")
+                # Return to listening state
+                self._update_state(ConversationState.LISTENING)
                 return
             
-            # Wait for response to complete
-            while self.llm_handler.is_responding():
+            # Wait for response to complete with timeout
+            max_wait_time = 30.0  # Maximum wait time for LLM response
+            wait_start = time.time()
+            while self.llm_handler.is_responding() and (time.time() - wait_start) < max_wait_time:
                 await asyncio.sleep(0.1)
+            
+            # Check if response completed
+            if self.llm_handler.is_responding():
+                logger.warning("LLM response timed out")
+                await self.llm_handler.cancel_response()
+                self._update_state(ConversationState.LISTENING)
+                return
             
             # Get response text
             response = self.llm_handler.get_current_response()
@@ -519,6 +543,10 @@ class ConversationLoop:
                 
                 # Synthesize speech
                 await self._synthesize_response(response.text)
+            else:
+                logger.warning("No response received from LLM")
+                # Return to listening state
+                self._update_state(ConversationState.LISTENING)
             
             # Update statistics
             processing_time = time.time() - start_time
@@ -531,6 +559,8 @@ class ConversationLoop:
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             await self._handle_error("Response generation error", e)
+            # Return to listening state on error
+            self._update_state(ConversationState.LISTENING)
     
     async def _synthesize_response(self, text: str):
         """Synthesize AI response to speech."""
@@ -544,59 +574,86 @@ class ConversationLoop:
             success = await self.tts_handler.synthesize_text(text)
             if not success:
                 logger.error("Failed to synthesize speech")
+                # Return to listening state
+                self._update_state(ConversationState.LISTENING)
                 return
             
-            # Wait for synthesis to complete
-            while self.tts_handler.is_synthesizing():
+            # Wait for synthesis to complete with timeout
+            max_wait_time = 30.0  # Maximum wait time for TTS
+            wait_start = time.time()
+            while self.tts_handler.is_synthesizing() and (time.time() - wait_start) < max_wait_time:
                 await asyncio.sleep(0.1)
             
+            # Check if synthesis completed
+            if self.tts_handler.is_synthesizing():
+                logger.warning("TTS synthesis timed out")
+                await self.tts_handler.stop_synthesis()
+            
             logger.info("Speech synthesis completed")
+            
+            # Return to listening state after synthesis
+            self._update_state(ConversationState.LISTENING)
             
         except Exception as e:
             logger.error(f"Error synthesizing response: {e}")
             await self._handle_error("Speech synthesis error", e)
+            # Return to listening state on error
+            self._update_state(ConversationState.LISTENING)
     
     # Callback methods
-    def _on_transcript(self, transcript: str):
+    def _on_transcript(self, transcript: str, is_final: bool = False):
         """Handle STT transcript."""
-        logger.debug(f"STT transcript: {transcript}")
+        logger.debug(f"STT transcript (final={is_final}): {transcript}")
         self.stats['stt_requests'] += 1
+        
+        # If this is a final transcript, we can process it
+        if is_final and transcript.strip():
+            logger.info(f"Final transcript: {transcript}")
     
     def _on_speech_start(self):
         """Handle speech start detection."""
         logger.debug("Speech started")
-        self._update_state(ConversationState.LISTENING)
+        self.stats['vad_detections'] += 1
+        # Don't change state here - let the main flow handle it
     
     def _on_speech_end(self):
         """Handle speech end detection."""
         logger.debug("Speech ended")
+        # Trigger speech processing
+        asyncio.create_task(self._process_speech())
     
     def _on_response_start(self):
         """Handle LLM response start."""
         logger.debug("LLM response started")
         self.stats['llm_requests'] += 1
+        self._update_state(ConversationState.PROCESSING)
     
     def _on_response_chunk(self, chunk: str):
         """Handle LLM response chunk."""
         logger.debug(f"LLM chunk: {chunk}")
+        # Could implement streaming response handling here
     
     def _on_response_complete(self, response: str):
         """Handle LLM response completion."""
         logger.debug(f"LLM response complete: {response}")
+        # Response processing is handled in _generate_response
     
     def _on_tts_speech_start(self):
         """Handle TTS speech start."""
         logger.debug("TTS speech started")
         self.stats['tts_requests'] += 1
+        self._update_state(ConversationState.SPEAKING)
     
     def _on_audio_chunk(self, audio_data: bytes):
         """Handle TTS audio chunk."""
         logger.debug(f"TTS audio chunk: {len(audio_data)} bytes")
         # In a real implementation, this would send audio to the SIP client
+        # For now, we'll just log it
     
     def _on_tts_speech_end(self):
         """Handle TTS speech end."""
         logger.debug("TTS speech ended")
+        # Return to listening state after TTS completes
         self._update_state(ConversationState.LISTENING)
     
     def _update_state(self, new_state: ConversationState):

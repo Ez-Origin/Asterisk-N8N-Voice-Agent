@@ -143,7 +143,7 @@
         "dependencies": [
           41
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -177,7 +177,7 @@
             "title": "Implement LLM streaming integration",
             "description": "Implement large language model streaming using OpenAI Realtime API",
             "details": "Implement the LLM functionality that sends transcribed text to OpenAI's Realtime API and processes the streaming responses for natural language understanding and generation.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 42
           },
@@ -186,7 +186,7 @@
             "title": "Implement TTS streaming integration",
             "description": "Implement text-to-speech streaming using OpenAI Realtime API",
             "details": "Implement the text-to-speech functionality that sends generated text to OpenAI's Realtime API and processes the streaming audio responses for real-time voice output.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 42
           },
@@ -195,7 +195,7 @@
             "title": "Create comprehensive test suite",
             "description": "Create tests for the complete OpenAI Realtime API integration",
             "details": "Create comprehensive tests that verify the STT, LLM, and TTS streaming functionality works correctly with the OpenAI Realtime API, including error handling and edge cases.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 42
           }
@@ -212,7 +212,53 @@
           42
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Call Session Management",
+            "description": "Create call session data structures and management for tracking call state, context, and metadata",
+            "details": "Implement CallSession class with unique call-id, timestamps, language, context, and provider selection. Handle session lifecycle and cleanup.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 43
+          },
+          {
+            "id": 2,
+            "title": "Implement Conversation Loop",
+            "description": "Create the main conversation loop that handles STT → LLM → TTS cycles",
+            "details": "Implement async conversation loop that processes audio input through STT, sends to LLM, and synthesizes response through TTS. Handle conversation flow and context management.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 43
+          },
+          {
+            "id": 3,
+            "title": "Integrate Audio Processing Pipeline",
+            "description": "Integrate VAD, noise suppression, echo cancellation, and codec handling into the conversation loop",
+            "details": "Connect the audio processing pipeline to the conversation loop. Handle real-time audio processing, codec negotiation, and audio quality optimization.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 43
+          },
+          {
+            "id": 4,
+            "title": "Integrate AI Providers",
+            "description": "Connect OpenAI Realtime API handlers (STT, LLM, TTS) to the conversation loop",
+            "details": "Integrate the OpenAI Realtime API client and handlers into the conversation loop. Handle provider selection, error handling, and streaming responses.",
+            "status": "in-progress",
+            "dependencies": [],
+            "parentTaskId": 43
+          },
+          {
+            "id": 5,
+            "title": "Implement Call State Machine",
+            "description": "Create robust call state management with proper call termination handling",
+            "details": "Implement call state machine to handle call lifecycle: ringing, connected, processing, ended. Handle call termination (BYE, timeout) and cleanup. Support per-call instructions and prompt injection.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 43
+          }
+        ]
       },
       {
         "id": 44,
@@ -351,7 +397,7 @@
     ],
     "metadata": {
       "created": "2025-09-05T22:39:53.948Z",
-      "updated": "2025-09-06T02:09:54.902Z",
+      "updated": "2025-09-06T02:44:10.645Z",
       "description": "Tasks for master context"
     }
   }
