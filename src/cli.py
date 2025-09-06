@@ -324,19 +324,19 @@ def health():
             else:
                 health_results.append((f"File: {file_path}", "❌ Missing", "red"))
         
-        # Check environment variables
+        # Check environment variables (using Pydantic env_prefix)
         required_env_vars = [
-            "ASTERISK_HOST",
-            "SIP_EXTENSION", 
-            "SIP_PASSWORD",
-            "OPENAI_API_KEY"
+            ("VOICE_AGENT_SIP_HOST", "SIP Host"),
+            ("VOICE_AGENT_SIP_EXTENSION", "SIP Extension"), 
+            ("VOICE_AGENT_SIP_PASSWORD", "SIP Password"),
+            ("VOICE_AGENT_AI_PROVIDER_API_KEY", "OpenAI API Key")
         ]
         
-        for env_var in required_env_vars:
+        for env_var, display_name in required_env_vars:
             if os.getenv(env_var):
-                health_results.append((f"Env: {env_var}", "✅ Set", "green"))
+                health_results.append((f"Env: {display_name}", "✅ Set", "green"))
             else:
-                health_results.append((f"Env: {env_var}", "❌ Missing", "red"))
+                health_results.append((f"Env: {display_name}", "❌ Missing", "red"))
         
         progress.update(task, completed=True)
         
