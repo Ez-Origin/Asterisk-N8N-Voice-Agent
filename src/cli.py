@@ -21,7 +21,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm, Prompt
 from rich import print as rprint
 
-from config_manager import ConfigManager
+from config.manager import ConfigManager
 from engine import VoiceAgentEngine
 from call_session import CallSessionManager
 from providers.openai import RealtimeClient, STTHandler, LLMHandler, TTSHandler
