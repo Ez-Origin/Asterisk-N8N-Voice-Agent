@@ -120,7 +120,6 @@ class TTSHandler:
         }
         
         # Processing tracking
-        self.is_processing = False
         self.synthesis_start_time = 0
         self.last_activity_time = 0
         
@@ -160,7 +159,6 @@ class TTSHandler:
             
             # Update state
             self.state = TTSState.PROCESSING
-            self.is_processing = True
             self.synthesis_start_time = time.time()
             
             # Reset response
@@ -176,7 +174,6 @@ class TTSHandler:
             if not success:
                 logger.error("Failed to send text message to Realtime API")
                 self.state = TTSState.ERROR
-                self.is_processing = False
                 return False
             
             # Create response with audio modality
@@ -184,7 +181,6 @@ class TTSHandler:
             if not success:
                 logger.error("Failed to create audio response")
                 self.state = TTSState.ERROR
-                self.is_processing = False
                 return False
             
             # Update statistics
@@ -199,7 +195,6 @@ class TTSHandler:
         except Exception as e:
             self.stats['errors'] += 1
             self.state = TTSState.ERROR
-            self.is_processing = False
             
             if self.config.enable_logging:
                 logger.error(f"Error synthesizing text: {e}")
@@ -240,7 +235,7 @@ class TTSHandler:
     async def stop_synthesis(self) -> bool:
         """Stop the current synthesis."""
         try:
-            if not self.is_processing:
+            if not self.is_synthesizing():
                 logger.warning("No synthesis in progress")
                 return False
             
@@ -252,8 +247,7 @@ class TTSHandler:
             
             # Update state
             self.state = TTSState.IDLE
-            self.is_processing = False
-            self.is_speaking = False
+            self._is_speaking = False
             
             if self.config.enable_logging:
                 logger.info("TTS synthesis stopped")
@@ -357,7 +351,6 @@ class TTSHandler:
             
             # Update state
             self.state = TTSState.COMPLETED
-            self.is_processing = False
             
             # Call synthesis complete callback
             if self.config.on_synthesis_complete:
@@ -385,7 +378,6 @@ class TTSHandler:
         """Handle errors from the Realtime client."""
         self.stats['errors'] += 1
         self.state = TTSState.ERROR
-        self.is_processing = False
         self._is_speaking = False
         
         if self.config.enable_logging:
@@ -428,7 +420,7 @@ class TTSHandler:
         """Reset the TTS handler to initial state."""
         try:
             # Stop any ongoing synthesis
-            if self.is_processing:
+            if self.is_synthesizing():
                 await self.stop_synthesis()
             
             # Clear all data
@@ -437,7 +429,6 @@ class TTSHandler:
             
             # Reset state
             self.state = TTSState.IDLE
-            self.is_processing = False
             self._is_speaking = False
             self.synthesis_start_time = 0
             self.last_activity_time = 0
