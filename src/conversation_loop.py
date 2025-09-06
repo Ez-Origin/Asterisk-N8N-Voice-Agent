@@ -172,7 +172,7 @@ class ConversationLoop:
             )
             
             llm_config = LLMConfig(
-                system_prompt=self.config.system_prompt,
+                system_instructions=self.config.system_prompt,
                 max_context_length=self.config.max_conversation_turns,
                 enable_logging=True
             )
