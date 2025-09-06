@@ -290,7 +290,20 @@ class CallStateMachine:
         
         # Apply state transition if valid
         if new_state and new_state != self.current_state:
-            await self._transition_to_state(new_state)
+            # Determine termination reason based on event
+            termination_reason = None
+            if event == CallEvent.CALL_TIMEOUT:
+                termination_reason = TerminationReason.TIMEOUT
+            elif event == CallEvent.USER_HANGUP:
+                termination_reason = TerminationReason.USER_HANGUP
+            elif event == CallEvent.AGENT_HANGUP:
+                termination_reason = TerminationReason.AGENT_HANGUP
+            elif event == CallEvent.NETWORK_ERROR:
+                termination_reason = TerminationReason.NETWORK_ERROR
+            elif event == CallEvent.CALL_ERROR:
+                termination_reason = TerminationReason.SYSTEM_ERROR
+            
+            await self._transition_to_state(new_state, termination_reason)
     
     async def _transition_to_state(self, new_state: CallState, termination_reason: Optional[TerminationReason] = None) -> bool:
         """Transition to a new state."""
