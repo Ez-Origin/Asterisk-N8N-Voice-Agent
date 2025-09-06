@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from src.call_session import CallSession, CallState
-from src.audio_processing.pipeline import AudioProcessingPipeline
+from src.audio_processing.pipeline import AudioProcessingPipeline, AudioProcessingConfig
 from src.audio_processing.codec_handler import CodecHandler
 from src.providers.openai import (
     RealtimeClient, STTHandler, LLMHandler, TTSHandler,
@@ -135,14 +135,13 @@ class ConversationLoop:
             self.codec_handler = CodecHandler()
             
             # Initialize audio processing pipeline
-            pipeline_config = {
-                'enable_vad': self.config.enable_vad,
-                'enable_noise_suppression': self.config.enable_noise_suppression,
-                'enable_echo_cancellation': self.config.enable_echo_cancellation,
-                'vad_threshold': self.config.vad_threshold,
-                'sample_rate': self.session.sample_rate,
-                'channels': self.session.channels
-            }
+            pipeline_config = AudioProcessingConfig(
+                enable_vad=self.config.enable_vad,
+                enable_noise_suppression=self.config.enable_noise_suppression,
+                enable_echo_cancellation=self.config.enable_echo_cancellation,
+                sample_rate=self.session.sample_rate,
+                vad_threshold=self.config.vad_threshold
+            )
             
             self.audio_pipeline = AudioProcessingPipeline(pipeline_config)
             await self.audio_pipeline.initialize()
