@@ -15,7 +15,7 @@ from watchdog.events import FileSystemEventHandler
 import logging
 from datetime import datetime
 
-from .schema import VoiceAgentConfig, DEFAULT_CONFIG
+from .schema import VoiceAgentConfig, DEFAULT_CONFIG, SIPConfig, AIProviderConfig
 
 
 logger = logging.getLogger(__name__)
@@ -86,9 +86,16 @@ class ConfigManager:
             file_config.pop('config_file', None)
             
             # Create configuration with file and environment overrides
+            # Initialize nested BaseSettings classes with their environment variables
+            sip_config = SIPConfig(**file_config.get('sip', {}))
+            ai_provider_config = AIProviderConfig(**file_config.get('ai_provider', {}))
+            
+            # Create main configuration
             self.config = VoiceAgentConfig(
                 config_file=str(self.config_file_path),
-                **file_config
+                sip=sip_config,
+                ai_provider=ai_provider_config,
+                **{k: v for k, v in file_config.items() if k not in ['sip', 'ai_provider']}
             )
             
             logger.info(f"Configuration loaded from {self.config_file_path}")
