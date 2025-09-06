@@ -116,7 +116,7 @@ class LLMHandler:
         }
         
         # Response tracking
-        self.is_responding = False
+        self._is_responding = False
         self.response_start_time = 0
         self.last_activity_time = 0
         
@@ -273,7 +273,7 @@ class LLMHandler:
             
             # Update state
             self.state = LLMState.PROCESSING
-            self.is_responding = True
+            self._is_responding = True
             self.response_start_time = time.time()
             
             # Reset response buffers
@@ -310,7 +310,7 @@ class LLMHandler:
     async def cancel_response(self) -> bool:
         """Cancel the current response."""
         try:
-            if not self.is_responding:
+            if not self._is_responding:
                 logger.warning("No response in progress")
                 return False
             
@@ -322,7 +322,7 @@ class LLMHandler:
             
             # Update state
             self.state = LLMState.IDLE
-            self.is_responding = False
+            self._is_responding = False
             
             if self.config.enable_logging:
                 logger.info("Response cancelled")
@@ -455,7 +455,7 @@ class LLMHandler:
             
             # Update state
             self.state = LLMState.COMPLETED
-            self.is_responding = False
+            self._is_responding = False
             
             # Call response complete callback
             if self.config.on_response_complete:
@@ -483,7 +483,7 @@ class LLMHandler:
         """Handle errors from the Realtime client."""
         self.stats['errors'] += 1
         self.state = LLMState.ERROR
-        self.is_responding = False
+        self._is_responding = False
         
         if self.config.enable_logging:
             logger.error(f"LLM error: {error_message}")
@@ -517,7 +517,7 @@ class LLMHandler:
     
     def is_responding(self) -> bool:
         """Check if the handler is currently responding."""
-        return self.is_responding
+        return self._is_responding
     
     def get_stats(self) -> Dict[str, Any]:
         """Get LLM handler statistics."""
@@ -536,7 +536,7 @@ class LLMHandler:
         """Reset the LLM handler to initial state."""
         try:
             # Cancel any ongoing response
-            if self.is_responding:
+            if self._is_responding:
                 await self.cancel_response()
             
             # Clear all data
@@ -548,7 +548,7 @@ class LLMHandler:
             
             # Reset state
             self.state = LLMState.IDLE
-            self.is_responding = False
+            self._is_responding = False
             self.response_start_time = 0
             self.last_activity_time = 0
             
