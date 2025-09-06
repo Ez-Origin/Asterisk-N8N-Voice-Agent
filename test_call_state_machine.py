@@ -199,7 +199,7 @@ async def test_timeout_management():
         # Create instructions with short timeouts for testing
         instructions = CallInstructions(
             max_duration=2,  # 2 seconds
-            silence_timeout=1  # 1 second
+            silence_timeout=3  # 3 seconds (longer than max duration)
         )
         
         # Create state machine
