@@ -44,7 +44,7 @@ class MockWebSocketServer:
         """Start the mock server."""
         import websockets
         
-        async def handle_client(websocket, path):
+        async def handle_client(websocket):
             self.clients.append(websocket)
             logger.info(f"Client connected: {websocket.remote_address}")
             
