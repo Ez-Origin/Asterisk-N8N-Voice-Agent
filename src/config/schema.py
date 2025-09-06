@@ -242,4 +242,4 @@ class VoiceAgentConfig(BaseSettings):
 
 
 # Default configuration instance
-DEFAULT_CONFIG = VoiceAgentConfig()
+# DEFAULT_CONFIG = VoiceAgentConfig()  # Commented out to avoid permission issues during import
