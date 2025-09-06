@@ -51,6 +51,7 @@ RUN chown -R voiceagent:voiceagent /home/voiceagent/.local
 COPY src/ ./src/
 COPY config/ ./config/
 COPY scripts/ ./scripts/
+COPY test_*.py ./
 
 # Set Python path
 ENV PATH=/home/voiceagent/.local/bin:$PATH
