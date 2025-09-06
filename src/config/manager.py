@@ -15,7 +15,7 @@ from watchdog.events import FileSystemEventHandler
 import logging
 from datetime import datetime
 
-from .schema import VoiceAgentConfig, DEFAULT_CONFIG, SIPConfig, AIProviderConfig
+from .schema import VoiceAgentConfig, SIPConfig, AIProviderConfig
 
 
 logger = logging.getLogger(__name__)
