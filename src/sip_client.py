@@ -582,6 +582,9 @@ Content-Length: 0\r
             elif "BYE" in message and "SIP/2.0" in message:
                 # Handle call termination
                 await self._handle_call_termination(message, addr)
+            elif "OPTIONS" in message and "SIP/2.0" in message:
+                # Handle OPTIONS request (health check)
+                await self._handle_options_request(message, addr)
             else:
                 logger.debug(f"Unhandled SIP message: {message[:100]}...")
                 
@@ -646,6 +649,45 @@ Content-Length: 0\r
                 
         except Exception as e:
             logger.error(f"Error handling call termination: {e}")
+    
+    async def _handle_options_request(self, message: str, addr: tuple):
+        """Handle OPTIONS request (health check)."""
+        try:
+            # Extract Call-ID and CSeq from the OPTIONS request
+            call_id_match = re.search(r'Call-ID: ([^\r\n]+)', message)
+            cseq_match = re.search(r'CSeq: (\d+) OPTIONS', message)
+            
+            if not call_id_match or not cseq_match:
+                logger.error("Could not extract Call-ID or CSeq from OPTIONS request")
+                return
+            
+            call_id = call_id_match.group(1).strip()
+            cseq = cseq_match.group(1).strip()
+            
+            # Send 200 OK response
+            response = f"""SIP/2.0 200 OK\r
+Via: SIP/2.0/UDP 172.17.0.1:5060;rport;branch=z9hG4bKPje2\r
+From: <sip:3000@voiprnd.nemtclouddispatch.com>;tag=as12345678\r
+To: <sip:3000@172.17.0.3:15060>;tag=as87654321\r
+Call-ID: {call_id}\r
+CSeq: {cseq} OPTIONS\r
+Contact: <sip:3000@172.17.0.3:15060>\r
+Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REFER, NOTIFY\r
+Accept: application/sdp\r
+Accept-Encoding: identity\r
+Accept-Language: en\r
+Supported: replaces\r
+User-Agent: Asterisk-AI-Voice-Agent/1.0\r
+Content-Length: 0\r
+\r
+"""
+            
+            # Send the response
+            self.socket.sendto(response.encode('utf-8'), addr)
+            logger.info(f"Sent OPTIONS 200 OK response to {addr}")
+            
+        except Exception as e:
+            logger.error(f"Error handling OPTIONS request: {e}")
     
     def _build_ringing_response(self, call_id: str, original_message: str) -> str:
         """Build a 180 Ringing response."""
