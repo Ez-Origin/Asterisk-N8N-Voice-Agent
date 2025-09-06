@@ -10,7 +10,17 @@
         "priority": "high",
         "dependencies": [],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Multi-stage Dockerfile",
+            "description": "Create a multi-stage Dockerfile optimized for voice processing workloads with Python 3.11+ base image",
+            "details": "Implement build stage for dependencies and runtime stage for the application. Include audio processing libraries and SIP/RTP support. Ensure host networking compatibility.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 36
+          }
+        ]
       },
       {
         "id": 37,
@@ -35,7 +45,7 @@
         "dependencies": [
           37
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -240,7 +250,7 @@
     ],
     "metadata": {
       "created": "2025-09-05T22:39:53.948Z",
-      "updated": "2025-09-05T22:59:10.344Z",
+      "updated": "2025-09-06T00:22:41.599Z",
       "description": "Tasks for master context"
     }
   }

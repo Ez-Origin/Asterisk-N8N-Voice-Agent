@@ -51,3 +51,5 @@ EOF
 echo "✅ Deployment completed!"
 echo "🔍 Check container status with: ssh $SERVER 'cd $PROJECT_DIR && docker-compose ps'"
 echo "📋 View logs with: ssh $SERVER 'cd $PROJECT_DIR && docker-compose logs -f'"
+
+
