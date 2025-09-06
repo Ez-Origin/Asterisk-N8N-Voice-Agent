@@ -305,11 +305,19 @@ class WebSocketManager:
                 payload = self._prepare_generic_message(message)
             
             # Send message
-            await self.websocket.send_str(json.dumps(payload))
+            if isinstance(payload.get('data', ''), bytes):
+                # For binary data, send as binary
+                await self.websocket.send_bytes(payload['data'])
+            else:
+                # For text data, send as JSON
+                await self.websocket.send_str(json.dumps(payload))
             
             # Update statistics
             self.stats['messages_sent'] += 1
-            self.stats['bytes_sent'] += len(json.dumps(payload).encode())
+            if isinstance(payload.get('data', ''), bytes):
+                self.stats['bytes_sent'] += len(payload['data'])
+            else:
+                self.stats['bytes_sent'] += len(json.dumps(payload).encode())
             
             if self.config.enable_logging:
                 logger.debug(f"Sent message {message_id} of type {message_type.value}")
