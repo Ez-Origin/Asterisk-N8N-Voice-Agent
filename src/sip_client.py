@@ -1105,7 +1105,7 @@ Content-Length: 0\r
             # Fall back to keep-alive mode
             await self._keep_call_alive(call_id, call_info, rtp_socket)
     
-    async def _process_bidirectional_audio(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket, conversation_loop: ConversationLoop):
+    async def _process_bidirectional_audio(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket, conversation_loop):
         """Process bidirectional audio between RTP and conversation loop."""
         try:
             logger.info(f"Starting bidirectional audio processing for call {call_id}")
