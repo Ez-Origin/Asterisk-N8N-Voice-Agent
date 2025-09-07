@@ -136,10 +136,11 @@ class SIPClient:
     async def start(self) -> bool:
         """Start the SIP client and register with Asterisk."""
         try:
-            # Hybrid approach: SIP on container IP, but advertise public IP in SDP for direct media
-            sip_bind_ip = self.config.local_ip  # Use container IP for SIP registration
+            # With --network host, bind to 0.0.0.0 to listen on all interfaces
+            # This allows receiving packets from both Docker internal network and external
+            sip_bind_ip = "0.0.0.0"  # Listen on all interfaces for --network host
             
-            # Create UDP socket for SIP signaling (container IP for registration)
+            # Create UDP socket for SIP signaling (all interfaces for host networking)
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             logger.info(f"Attempting to bind SIP to {sip_bind_ip}:{self.config.local_port}")
             self.socket.bind((sip_bind_ip, self.config.local_port))
