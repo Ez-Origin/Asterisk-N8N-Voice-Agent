@@ -869,6 +869,9 @@ Content-Length: 0\r
                 return
             
             try:
+                # Wait a moment for the audio path to be fully established
+                await asyncio.sleep(0.5)
+                
                 # Send initial greeting message
                 await self._play_ai_greeting(call_id, call_info, self.rtp_socket)
                 
@@ -893,9 +896,9 @@ Content-Length: 0\r
             audio_data = await self._generate_tts_audio(greeting_text)
             
             if audio_data:
-                # Send audio over RTP
-                await self._send_rtp_audio(call_id, call_info, rtp_socket, audio_data)
-                logger.info(f"AI greeting played for call {call_id}")
+            # Send audio over RTP
+            await self._send_rtp_audio(call_id, call_info, rtp_socket, audio_data)
+            logger.info(f"AI greeting played for call {call_id} - sent {len(audio_data)} bytes of audio")
             else:
                 logger.warning(f"Failed to generate TTS audio for call {call_id}")
                 
