@@ -132,8 +132,16 @@ class VoiceAgentEngine:
         
         for call_id, call_info in self.active_calls.items():
             try:
-                logger.info(f"Processing call {call_id} with state: {call_info.state}")
-                await self._handle_call(call_id, call_info)
+                # Only process calls that need attention
+                if call_info.state == "ringing":
+                    logger.info(f"Processing call {call_id} with state: {call_info.state}")
+                    await self._handle_call(call_id, call_info)
+                elif call_info.state == "connected" and not hasattr(call_info, 'conversation_started'):
+                    logger.info(f"Processing call {call_id} with state: {call_info.state}")
+                    await self._handle_call(call_id, call_info)
+                elif call_info.state == "ended":
+                    logger.info(f"Processing call {call_id} with state: {call_info.state}")
+                    await self._handle_call(call_id, call_info)
             except Exception as e:
                 logger.error(f"Error processing call {call_id}: {e}")
     
@@ -150,7 +158,9 @@ class VoiceAgentEngine:
                 call_info.conversation_started = True
                 # Process audio through conversation loop
                 await self._process_call_audio(call_id, call_info)
-            # Don't log every 10ms for connected calls
+            else:
+                # Call is already being processed, skip
+                pass
         elif call_info.state == "ended":
             logger.info(f"Call {call_id} has ended - removing from active calls")
             # Clean up conversation loop and remove from active calls
