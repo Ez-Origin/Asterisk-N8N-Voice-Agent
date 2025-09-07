@@ -880,6 +880,9 @@ Content-Length: 0\r
                 # Wait a moment for the audio path to be fully established
                 await asyncio.sleep(0.5)
                 
+                # Send REINVITE to establish direct media with caller
+                await self._send_reinvite_for_direct_media(call_id, call_info)
+                
                 # Send initial greeting message
                 await self._play_ai_greeting(call_id, call_info, self.rtp_socket)
                 
@@ -1086,6 +1089,53 @@ Content-Length: 0\r
             return filtered
         
         return resampled
+    
+    async def _send_reinvite_for_direct_media(self, call_id: str, call_info: CallInfo):
+        """Send REINVITE to establish direct media with caller."""
+        try:
+            logger.info(f"Sending REINVITE for direct media on call {call_id}")
+            
+            # Build REINVITE message with SDP advertising public IP
+            reinvite_msg = self._build_reinvite_message(call_id, call_info)
+            await self._send_message(reinvite_msg)
+            
+            # Wait for 200 OK response
+            response = await self._wait_for_response(timeout=5.0)
+            if response and "200 OK" in response:
+                logger.info(f"REINVITE successful for call {call_id} - direct media established")
+            else:
+                logger.warning(f"REINVITE failed for call {call_id}, continuing with proxy mode")
+                
+        except Exception as e:
+            logger.error(f"Error sending REINVITE for call {call_id}: {e}")
+    
+    def _build_reinvite_message(self, call_id: str, call_info: CallInfo) -> str:
+        """Build REINVITE message for direct media."""
+        # Use public IP in all headers for direct media
+        public_ip = "207.38.71.85"
+        
+        via = f"SIP/2.0/UDP {public_ip}:{self.config.local_port};branch={self._generate_branch()}"
+        from_header = f"<sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
+        to_header = f"<sip:{call_info.from_user}@{self.config.host}>;tag={call_info.from_user}"
+        contact = f"<sip:{self.config.extension}@{public_ip}:{self.config.local_port}>"
+        
+        # Build SDP with public IP for direct media
+        sdp = self._build_sdp()
+        
+        message = f"""INVITE sip:{call_info.from_user}@{self.config.host} SIP/2.0\r
+Via: {via}\r
+From: {from_header}\r
+To: {to_header}\r
+Call-ID: {call_id}\r
+CSeq: {self._sequence_number + 1} INVITE\r
+Contact: {contact}\r
+Content-Type: application/sdp\r
+Content-Length: {len(sdp)}\r
+Max-Forwards: 70\r
+User-Agent: Asterisk-AI-Voice-Agent/1.0\r
+\r
+{sdp}"""
+        return message
     
     def _preprocess_audio(self, samples):
         """Preprocess audio for better telephony quality."""
