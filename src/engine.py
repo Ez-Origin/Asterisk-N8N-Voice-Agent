@@ -118,7 +118,7 @@ class VoiceAgentEngine:
                 await self._process_active_calls()
                 
                 # Sleep briefly to prevent excessive CPU usage
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.01)  # Process more frequently
                 
         except Exception as e:
             logger.error(f"Error in main loop: {e}")

@@ -654,6 +654,9 @@ Content-Length: 0\r
                     self.calls[call_id].state = "connected"
                     logger.info(f"Call {call_id} established - ACK received")
                     
+                    # Add a small delay to allow engine to process the connected state
+                    await asyncio.sleep(0.1)
+                    
                     # Start RTP audio handling
                     asyncio.create_task(self._handle_rtp_audio(call_id))
                 else:
