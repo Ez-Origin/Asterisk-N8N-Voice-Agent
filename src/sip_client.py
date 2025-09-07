@@ -1070,6 +1070,16 @@ Content-Length: 0\r
             
             # Import here to avoid circular imports
             from src.conversation_loop import ConversationLoop, ConversationConfig
+            from src.call_session import CallSession, CallDirection
+            
+            # Create call session
+            call_session = CallSession(
+                call_id=call_id,
+                session_id=call_id,  # Use call_id as session_id for now
+                from_user=call_info.from_user,
+                to_user=call_info.to_user,
+                direction=CallDirection.INBOUND
+            )
             
             # Create conversation configuration
             if self.full_config and hasattr(self.full_config, 'ai_provider'):
@@ -1102,7 +1112,7 @@ Content-Length: 0\r
                 )
             
             # Create conversation loop
-            conversation_loop = ConversationLoop(conv_config)
+            conversation_loop = ConversationLoop(call_session, conv_config)
             
             # Start the conversation loop
             if await conversation_loop.start():
