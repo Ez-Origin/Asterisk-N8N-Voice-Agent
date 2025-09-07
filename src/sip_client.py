@@ -582,8 +582,12 @@ Content-Length: 0\r
     async def _process_incoming_message(self, message: str, addr: tuple):
         """Process an incoming SIP message."""
         try:
-            if "INVITE" in message and "SIP/2.0" in message:
-                # Handle incoming call
+            # Check for 200 OK first (before INVITE) since 200 OK contains "INVITE" in CSeq
+            if "200 OK" in message and "SIP/2.0" in message:
+                # Handle 200 OK response (call established)
+                await self._handle_200_ok_response(message, addr)
+            elif "INVITE" in message and "SIP/2.0" in message and "INVITE" in message.split('\n')[0]:
+                # Handle incoming call (only if INVITE is in the first line)
                 await self._handle_incoming_call(message, addr)
             elif "BYE" in message and "SIP/2.0" in message:
                 # Handle call termination
@@ -594,9 +598,6 @@ Content-Length: 0\r
             elif "ACK" in message and "SIP/2.0" in message:
                 # Handle ACK message (call established)
                 await self._handle_ack_message(message, addr)
-            elif "200 OK" in message and "SIP/2.0" in message:
-                # Handle 200 OK response (call established)
-                await self._handle_200_ok_response(message, addr)
             else:
                 logger.debug(f"Unhandled SIP message: {message[:100]}...")
                 
