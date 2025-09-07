@@ -1151,7 +1151,9 @@ Content-Length: 0\r
         # Use original CSeq + 1 for REINVITE (original was 1, so this should be 2)
         cseq = call_info.original_cseq + 1
         
-        message = f"""INVITE sip:{call_info.from_user}@{self.config.host} SIP/2.0\r
+        # REINVITE should be sent to the original caller (Asterisk in this case)
+        # The original caller was Asterisk itself, so send to Asterisk
+        message = f"""INVITE sip:{self.config.extension}@{self.config.host} SIP/2.0\r
 Via: {via}\r
 From: {original_from}\r
 To: {original_to}\r
