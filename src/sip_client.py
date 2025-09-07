@@ -905,29 +905,115 @@ Content-Length: 0\r
     async def _generate_tts_audio(self, text: str) -> bytes:
         """Generate TTS audio for the given text."""
         try:
-            # For now, generate a simple tone as placeholder
-            # In a real implementation, this would use the TTS handler
-            sample_rate = 8000
-            duration = 2.0  # 2 seconds
-            frequency = 440  # A4 note
+            logger.info(f"Generating TTS audio for: '{text}'")
             
-            import math
-            samples = []
-            for i in range(int(sample_rate * duration)):
-                t = i / sample_rate
-                # Generate a simple sine wave
-                sample = int(32767 * 0.3 * math.sin(2 * math.pi * frequency * t))
-                # Convert to 8-bit mu-law
-                ulaw_sample = self._linear_to_ulaw_sample(sample)
-                samples.append(ulaw_sample)
+            # Use OpenAI TTS API
+            import openai
             
-            return bytes(samples)
+            # Get API key from config
+            api_key = self.full_config.ai_provider.api_key
+            if not api_key:
+                logger.error("No OpenAI API key configured")
+                return self._generate_silence(2.0)
+            
+            client = openai.OpenAI(api_key=api_key)
+            
+            # Generate speech using OpenAI TTS
+            response = client.audio.speech.create(
+                model="tts-1",
+                voice="alloy",
+                input=text,
+                response_format="wav"
+            )
+            
+            # Get the audio data
+            audio_data = response.content
+            logger.info(f"Generated {len(audio_data)} bytes of TTS audio")
+            
+            # Convert WAV to mu-law at 8kHz
+            ulaw_audio = await self._convert_wav_to_ulaw(audio_data)
+            logger.info(f"Converted to {len(ulaw_audio)} bytes of mu-law audio")
+            
+            return ulaw_audio
             
         except Exception as e:
             logger.error(f"Error generating TTS audio: {e}")
-            return None
+            # Fall back to silence
+            return self._generate_silence(2.0)
     
-    def _linear_to_ulaw(self, linear: int) -> int:
+    def _generate_silence(self, duration: float) -> bytes:
+        """Generate silence for the specified duration."""
+        sample_rate = 8000
+        num_samples = int(sample_rate * duration)
+        # Mu-law silence is 0xFF (not 0x00)
+        return bytes([0xFF] * num_samples)
+    
+    async def _convert_wav_to_ulaw(self, wav_data: bytes) -> bytes:
+        """Convert WAV audio data to mu-law at 8kHz."""
+        try:
+            import io
+            import wave
+            import struct
+            
+            # Parse WAV data
+            wav_io = io.BytesIO(wav_data)
+            with wave.open(wav_io, 'rb') as wav_file:
+                frames = wav_file.readframes(wav_file.getnframes())
+                sample_rate = wav_file.getframerate()
+                sample_width = wav_file.getsampwidth()
+                channels = wav_file.getnchannels()
+                
+                logger.info(f"WAV format: {sample_rate}Hz, {sample_width} bytes, {channels} channels")
+                
+                # Convert to 16-bit samples
+                if sample_width == 1:
+                    samples = struct.unpack(f'{len(frames)}B', frames)
+                    # Convert 8-bit unsigned to 16-bit signed
+                    samples = [(s - 128) * 256 for s in samples]
+                elif sample_width == 2:
+                    samples = struct.unpack(f'{len(frames)//2}h', frames)
+                else:
+                    logger.error(f"Unsupported sample width: {sample_width}")
+                    return self._generate_silence(2.0)
+                
+                # Handle stereo by taking left channel
+                if channels == 2:
+                    samples = samples[::2]
+                
+                # Resample to 8kHz if needed
+                if sample_rate != 8000:
+                    samples = self._resample_audio(samples, sample_rate, 8000)
+                
+                # Convert to mu-law
+                ulaw_samples = []
+                for sample in samples:
+                    # Clamp to 16-bit range
+                    sample = max(-32768, min(32767, sample))
+                    ulaw_sample = self._linear_to_ulaw_sample(sample)
+                    ulaw_samples.append(ulaw_sample)
+                
+                return bytes(ulaw_samples)
+                
+        except Exception as e:
+            logger.error(f"Error converting WAV to mu-law: {e}")
+            return self._generate_silence(2.0)
+    
+    def _resample_audio(self, samples, from_rate: int, to_rate: int):
+        """Simple resampling by decimation or interpolation."""
+        if from_rate == to_rate:
+            return samples
+        
+        ratio = from_rate / to_rate
+        resampled = []
+        
+        for i in range(int(len(samples) / ratio)):
+            src_index = int(i * ratio)
+            if src_index < len(samples):
+                resampled.append(samples[src_index])
+        
+        return resampled
+    
+    def _linear_to_ulaw_sample(self, linear: int) -> int:
         """Convert linear PCM to mu-law."""
         # Simple mu-law conversion (simplified version)
         if linear < 0:
