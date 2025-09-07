@@ -625,7 +625,7 @@ Content-Length: 0\r
             
             # Extract original headers for REINVITE
             original_from_header = from_match.group(0).replace("From: ", "").strip()
-            original_to_header = to_match.group(1).strip()
+            original_to_header = to_match.group(0).replace("To: ", "").strip()  # Include full To header
             original_call_id = call_id
             original_cseq = int(cseq_match.group(1))
             
