@@ -300,10 +300,12 @@ class SIPClient:
     
     def _build_register_message(self) -> str:
         """Build a SIP REGISTER message."""
+        # Use public IP for registration contact, but local IP for Via
+        public_ip = self.config.local_ip if self.config.local_ip != "0.0.0.0" else self.config.host
         via = f"SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
         from_header = f"<sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
         to_header = f"<sip:{self.config.extension}@{self.config.host}>"
-        contact = f"<sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>"
+        contact = f"<sip:{self.config.extension}@{public_ip}:{self.config.local_port}>"
         
         message = f"""REGISTER sip:{self.config.host} SIP/2.0\r
 Via: {via}\r

@@ -23,16 +23,10 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 # Runtime stage
 FROM python:3.11-slim
 
-# Install runtime dependencies
+# Install minimal runtime dependencies
 RUN apt-get update && apt-get install -y \
     libasound2 \
-    libpulse0 \
     libsndfile1 \
-    libfftw3-double3 \
-    libavcodec61 \
-    libavformat61 \
-    libavutil59 \
-    libswresample5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -63,9 +57,7 @@ USER voiceagent
 # Expose ports for SIP and RTP
 EXPOSE 5060/udp 10000-20000/udp 8000/tcp
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# No health check for now
 
 # Default command
 CMD ["python", "-m", "src.engine"]
