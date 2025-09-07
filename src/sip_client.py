@@ -415,26 +415,34 @@ User-Agent: Asterisk-AI-Voice-Agent/1.0\r
     
     def _build_sdp(self) -> str:
         """Build SDP (Session Description Protocol) for audio."""
-        # Always use public IP in SDP for direct media, regardless of SIP binding
-        # This enables direct RTP between caller and AI agent
-        local_ip = "207.38.71.85"  # Always use public IP for RTP media
+        # Use configured public IP for direct media
+        public_ip = None
+        try:
+            if self.full_config and hasattr(self.full_config, 'sip') and getattr(self.full_config.sip, 'public_ip', None):
+                public_ip = self.full_config.sip.public_ip
+        except Exception:
+            public_ip = None
+        if not public_ip or public_ip == "0.0.0.0":
+            public_ip = self.config.local_ip
         
-        # Use the configured RTP port range start (bound to public IP)
-        rtp_port = self.config.rtp_port_range[0]
+        # Use the actually bound RTP port if available
+        rtp_port = self.rtp_port if getattr(self, 'rtp_port', None) else self.config.rtp_port_range[0]
         
-        sdp = f"""v=0\r
-o=asterisk-ai-voice-agent 1234567890 1234567890 IN IP4 {local_ip}\r
-s=Asterisk AI Voice Agent\r
-c=IN IP4 {local_ip}\r
-t=0 0\r
-m=audio {rtp_port} RTP/AVP 0 8 9\r
-a=rtpmap:0 PCMU/8000\r
-a=rtpmap:8 PCMA/8000\r
-a=rtpmap:9 G722/8000\r
-a=ptime:20\r
-a=maxptime:150\r
-a=sendrecv\r
-"""
+        now = int(time.time())
+        sdp = (
+            f"v=0\r\n"
+            f"o=asterisk-ai-voice-agent {now} {now} IN IP4 {public_ip}\r\n"
+            f"s=Asterisk AI Voice Agent\r\n"
+            f"c=IN IP4 {public_ip}\r\n"
+            f"t=0 0\r\n"
+            f"m=audio {rtp_port} RTP/AVP 0 8 9\r\n"
+            f"a=rtpmap:0 PCMU/8000\r\n"
+            f"a=rtpmap:8 PCMA/8000\r\n"
+            f"a=rtpmap:9 G722/8000\r\n"
+            f"a=ptime:20\r\n"
+            f"a=maxptime:150\r\n"
+            f"a=sendrecv\r\n"
+        )
         return sdp
     
     def _parse_sdp(self, response: str) -> Dict[str, Any]:
@@ -447,8 +455,17 @@ a=sendrecv\r
             sdp_ip = ip_match.group(1)
             # If SDP shows Docker internal IP, use the actual Asterisk server IP instead
             if sdp_ip.startswith('172.17.0.'):
-                rtp_info['ip'] = '207.38.71.85'  # Use the actual server IP
-                logger.info(f"SDP shows Docker IP {sdp_ip}, using server IP 207.38.71.85 for RTP")
+                # Prefer configured public IP
+                public_ip = None
+                try:
+                    if self.full_config and hasattr(self.full_config, 'sip') and getattr(self.full_config.sip, 'public_ip', None):
+                        public_ip = self.full_config.sip.public_ip
+                except Exception:
+                    public_ip = None
+                if not public_ip or public_ip == "0.0.0.0":
+                    public_ip = self.config.local_ip
+                rtp_info['ip'] = public_ip
+                logger.info(f"SDP shows Docker IP {sdp_ip}, using server IP {public_ip} for RTP")
             else:
                 rtp_info['ip'] = sdp_ip
         
@@ -762,18 +779,16 @@ User-Agent: Asterisk-AI-Voice-Agent/1.0\r
             if call_id_match:
                 call_id = call_id_match.group(1).strip()
                 if call_id in self.calls:
-                    # Update call state to ended instead of immediately removing
+                    # Update call state to ended and delay cleanup to avoid race with re-INVITE/ACK
                     self.calls[call_id].state = "ended"
-                    logger.info(f"Call {call_id} terminated - state set to ended")
+                    logger.info(f"Call {call_id} terminated - state set to ended (delayed cleanup)")
                     
                     # Send 200 OK response to BYE
                     bye_response = self._build_bye_response(call_id, message)
                     await self._send_message(bye_response)
                     
-                    # Remove call immediately since engine handles cleanup
-                    if call_id in self.calls:
-                        del self.calls[call_id]
-                        logger.info(f"Call {call_id} removed from SIP client calls")
+                    # Delay cleanup to allow pending ops to finish
+                    asyncio.create_task(self._cleanup_call_delayed(call_id, delay=5.0))
                 if call_id in self.call_handlers:
                     del self.call_handlers[call_id]
                 
@@ -957,31 +972,25 @@ Content-Length: 0\r
                 logger.error(f"No RTP socket available for call {call_id}")
                 return
             
-            try:
-                # Wait a moment for the audio path to be fully established
-                await asyncio.sleep(0.5)
-                
-                # Send initial greeting message first
-                await self._play_ai_greeting(call_id, call_info, self.rtp_socket)
-                
-                # Wait a bit longer after greeting before attempting REINVITE
-                # This ensures the call is fully established and reduces conflicts
-                await asyncio.sleep(2.0)
-                
-                # Send REINVITE to establish direct media with caller
-                # Only if no other calls are active to prevent 491 Request Pending
-                await self._send_reinvite_for_direct_media(call_id, call_info)
-                
-                # Start conversation loop integration
-                await self._start_conversation_loop(call_id, call_info, self.rtp_socket)
-                
-            except Exception as e:
-                logger.error(f"Error in RTP audio handling for call {call_id}: {e}")
+            # Small wait to ensure audio path is ready
+            # Wait a moment for the audio path to be fully established
+            await asyncio.sleep(0.5)
             
-            logger.info(f"RTP audio handling ended for call {call_id}")
+            # Send initial greeting message first
+            await self._play_ai_greeting(call_id, call_info, self.rtp_socket)
+            
+            # Send REINVITE immediately after greeting to establish direct media
+            # This should happen while the call is still active
+            logger.info(f"Preparing to send re-INVITE for call {call_id}; current RTP target {call_info.remote_ip}:{call_info.remote_rtp_port}")
+            await self._send_reinvite_for_direct_media(call_id, call_info)
+            
+            # Start conversation loop integration
+            await self._start_conversation_loop(call_id, call_info, self.rtp_socket)
             
         except Exception as e:
             logger.error(f"Error in RTP audio handling for call {call_id}: {e}")
+        
+        logger.info(f"RTP audio handling ended for call {call_id}")
     
     async def _play_ai_greeting(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket):
         """Play the AI greeting message over RTP."""
@@ -1208,54 +1217,80 @@ Content-Length: 0\r
             
             # Build REINVITE message with SDP advertising public IP
             reinvite_msg = self._build_reinvite_message(call_id, call_info)
+            logger.info(f"REINVITE request (start):\n{reinvite_msg}")
             await self._send_message(reinvite_msg)
             
             # Wait for 200 OK response
             response = await self._wait_for_response(timeout=10.0)
             if response and "200 OK" in response:
                 logger.info(f"REINVITE successful for call {call_id} - direct media established")
+                logger.info(f"REINVITE 200 OK:\n{response}")
                 # Parse the SDP response to get the new RTP endpoint
                 rtp_info = self._parse_sdp(response)
                 if rtp_info.get('ip'):
                     logger.info(f"Direct media RTP endpoint: {rtp_info['ip']}:{rtp_info.get('port', 'unknown')}")
+                    # Update remote RTP target
+                    call_info.remote_ip = rtp_info['ip']
+                    if rtp_info.get('port'):
+                        call_info.remote_rtp_port = rtp_info['port']
             elif response and "491" in response:
                 logger.warning(f"REINVITE rejected with 491 Request Pending for call {call_id} - continuing with proxy mode")
+                logger.info(f"REINVITE 491 Response:\n{response}")
             else:
                 logger.warning(f"REINVITE failed for call {call_id} (timeout or error), continuing with proxy mode")
+                if response:
+                    logger.info(f"REINVITE failure response:\n{response}")
                 
         except Exception as e:
             logger.error(f"Error sending REINVITE for call {call_id}: {e}")
     
     def _build_reinvite_message(self, call_id: str, call_info: CallInfo) -> str:
-        """Build REINVITE message for direct media using original call headers."""
-        # Use the ORIGINAL call headers from the INVITE that Asterisk sent to us
-        # This is critical - we must preserve the original Call-ID, From/To tags, etc.
+        """Build a valid in-dialog re-INVITE to establish direct media."""
+        logger.info(f"Building re-INVITE for call {call_id} using original headers.")
         
-        # Get the original headers from the call_info (stored when we received the INVITE)
-        # Clean up any line breaks that might be in the headers
-        original_from = call_info.original_from_header.replace('\r', '').replace('\n', '').strip()
-        original_to = call_info.original_to_header.replace('\r', '').replace('\n', '').strip()
-        original_call_id = call_info.original_call_id
+        # Determine public IP from full_config.sip.public_ip with fallback
+        public_ip = None
+        try:
+            if self.full_config and hasattr(self.full_config, 'sip') and getattr(self.full_config.sip, 'public_ip', None):
+                public_ip = self.full_config.sip.public_ip
+        except Exception:
+            public_ip = None
+        if not public_ip or public_ip == "0.0.0.0":
+            public_ip = self.config.local_ip
         
-        # Debug: Log the cleaned headers
-        logger.info(f"REINVITE headers - From: {original_from}")
-        logger.info(f"REINVITE headers - To: {original_to}")
-        logger.info(f"REINVITE headers - Call-ID: {original_call_id}")
-        
-        # Use public IP for Via and Contact headers
-        public_ip = "207.38.71.85"
+        # Build headers for an in-dialog request
         via = f"SIP/2.0/UDP {public_ip}:{self.config.local_port};branch={self._generate_branch()}"
         contact = f"<sip:{self.config.extension}@{public_ip}:{self.config.local_port}>"
         
-        # Build SDP with public IP for direct media
-        sdp = self._build_sdp()
+        # Use original headers to maintain dialog
+        from_header = call_info.original_from_header.replace('\r', '').replace('\n', '').strip()
+        to_header = call_info.original_to_header.replace('\r', '').replace('\n', '').strip()
+        original_call_id = call_info.original_call_id
         
-        # Use original CSeq + 1 for REINVITE (original was 1, so this should be 2)
+        # Increment CSeq
         cseq = call_info.original_cseq + 1
         
-        # REINVITE should be sent to the same destination as the original INVITE
-        # The original INVITE came from Asterisk at 207.38.71.85:5060
-        message = f"""INVITE sip:{self.config.extension}@207.38.71.85:5060 SIP/2.0\r\nVia: {via}\r\nFrom: {original_from}\r\nTo: {original_to}\r\nCall-ID: {original_call_id}\r\nCSeq: {cseq} INVITE\r\nContact: {contact}\r\nContent-Type: application/sdp\r\nContent-Length: {len(sdp)}\r\nMax-Forwards: 70\r\nUser-Agent: Asterisk-AI-Voice-Agent/1.0\r\n\r\n{sdp}"""
+        # Build SDP payload
+        sdp = self._build_sdp()
+        
+        # Request URI - send to Asterisk host/port
+        request_uri = f"sip:{self.config.host}:{self.config.port}"
+        
+        message = (
+            f"INVITE {request_uri} SIP/2.0\r\n"
+            f"Via: {via}\r\n"
+            f"From: {from_header}\r\n"
+            f"To: {to_header}\r\n"
+            f"Call-ID: {original_call_id}\r\n"
+            f"CSeq: {cseq} INVITE\r\n"
+            f"Contact: {contact}\r\n"
+            f"Content-Type: application/sdp\r\n"
+            f"Content-Length: {len(sdp)}\r\n"
+            f"Max-Forwards: 70\r\n"
+            f"User-Agent: Asterisk-AI-Voice-Agent/1.0\r\n"
+            f"\r\n"
+            f"{sdp}"
+        )
         return message
     
     def _preprocess_audio(self, samples):

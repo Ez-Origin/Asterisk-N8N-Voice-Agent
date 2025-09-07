@@ -184,3 +184,80 @@ This command will:
 - **Uptime**: 99.9% availability
 - **CPU Usage**: <80% under normal load
 - **Memory Usage**: <2GB per instance
+
+## Asterisk to AI Agent Call Handling
+
+### SDP Format Requirements
+The AI agent must send properly formatted SDP responses to Asterisk to avoid parsing errors. Key requirements:
+
+1. **Media Line Format**: Must include payload format numbers in the media line
+   ```
+   m=audio 15060 RTP/AVP 0 8 9
+   ```
+   Where:
+   - `0` = PCMU (μ-law)
+   - `8` = PCMA (A-law) 
+   - `9` = G722
+
+2. **Required SDP Attributes**:
+   ```
+   a=rtpmap:0 PCMU/8000
+   a=rtpmap:8 PCMA/8000
+   a=rtpmap:9 G722/8000
+   a=ptime:20
+   a=maxptime:150
+   a=sendrecv
+   ```
+
+3. **Common SDP Parsing Errors**:
+   - `PJMEDIA_SDP_ENOFMT`: Missing payload format in media line
+   - Solution: Include payload numbers (0 8 9) in `m=audio` line
+
+### Call State Management
+1. **Call Lifecycle States**:
+   - `ringing`: Call received, not yet answered
+   - `connected`: Call answered, RTP established
+   - `ended`: Call terminated, cleanup required
+
+2. **State Transition Rules**:
+   - `ringing` → `connected`: After sending 200 OK + ACK
+   - `connected` → `ended`: After receiving BYE or timeout
+   - `ended` calls must be removed from active_calls to prevent infinite loops
+
+3. **Call Cleanup**:
+   - Remove ended calls from active_calls immediately
+   - Clean up conversation loops and RTP sockets
+   - Send proper BYE responses (200 OK)
+
+### SIP Message Handling
+1. **INVITE Processing**:
+   - Parse Call-ID, From, To headers
+   - Extract SDP for RTP information
+   - Send 200 OK with proper SDP format
+   - Handle ACK to establish RTP
+
+2. **BYE Processing**:
+   - Send 200 OK response to BYE
+   - Set call state to "ended"
+   - Schedule cleanup after delay
+
+3. **OPTIONS Processing**:
+   - Respond to OPTIONS with 200 OK
+   - Echo Via, From, To headers from request
+   - Keep endpoint "Available" in Asterisk
+
+### RTP Audio Handling
+1. **Audio Format**:
+   - Use μ-law (PCMU) encoding for telephony
+   - 8kHz sample rate
+   - 20ms packet intervals
+
+2. **Bidirectional Audio**:
+   - Receive RTP from caller (μ-law)
+   - Convert to linear PCM for AI processing
+   - Convert AI output back to μ-law
+   - Send RTP to caller
+
+3. **Keep-Alive**:
+   - Send silence packets during conversation
+   - Maintain RTP flow to prevent timeouts

@@ -19,6 +19,7 @@ class SIPConfig(BaseSettings):
     port: int = Field(default=5060, ge=1, le=65535, description="SIP port")
     local_port: int = Field(default=15060, ge=1, le=65535, description="Local SIP port for binding")
     local_ip: str = Field(default="0.0.0.0", description="Local IP for RTP (use public IP for external access)")
+    public_ip: str = Field(default="0.0.0.0", description="Public IP advertised in SDP/Via/Contact for direct media")
     extension: str = Field(default="3000", description="SIP extension number")
     password: str = Field(default="AIAgent2025", description="SIP extension password")
     realm: Optional[str] = Field(default=None, description="SIP realm for authentication")
