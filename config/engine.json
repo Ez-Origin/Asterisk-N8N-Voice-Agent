@@ -6,7 +6,7 @@
     "host": "voiprnd.nemtclouddispatch.com",
     "port": 5060,
     "local_port": 15060,
-    "local_ip": "voiprnd.nemtclouddispatch.com",
+    "local_ip": "207.38.71.85",
     "extension": "3000",
     "password": "AIAgent2025",
     "realm": null,
