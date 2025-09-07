@@ -71,7 +71,7 @@ class VoiceAgentEngine:
             )
             
             # Create and start SIP client
-            self.sip_client = SIPClient(sip_config)
+            self.sip_client = SIPClient(sip_config, self.config)
             
             # Add call handlers
             self.sip_client.add_registration_handler(self._on_registration_change)

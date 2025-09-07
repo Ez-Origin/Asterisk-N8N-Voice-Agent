@@ -89,8 +89,9 @@ class SIPClient:
     with support for multiple codecs and NAT traversal.
     """
     
-    def __init__(self, config: SIPConfig):
+    def __init__(self, config: SIPConfig, full_config=None):
         self.config = config
+        self.full_config = full_config
         self.socket: Optional[socket.socket] = None
         self.registered = False
         self.calls: Dict[str, CallInfo] = {}
@@ -600,9 +601,9 @@ Content-Length: 0\r
             # Debug: Log the full INVITE message
             logger.info(f"Full INVITE message: {message}")
             
-            # Extract call information
-            call_id_match = re.search(r'Call-ID: ([^\r\n]+)', message)
-            from_match = re.search(r'From: <sip:([^@]+)@', message)
+        # Extract call information
+        call_id_match = re.search(r'Call-ID: ([^\r\n]+)', message)
+        from_match = re.search(r'From: (?:[^<]*<)?sip:([^@]+)@', message)
             
             if not call_id_match or not from_match:
                 logger.error("Could not extract call information from INVITE")
@@ -923,8 +924,8 @@ Content-Length: 0\r
                 # Generate a simple sine wave
                 sample = int(32767 * 0.3 * math.sin(2 * math.pi * frequency * t))
                 # Convert to 8-bit mu-law
-                sample = self._linear_to_ulaw(sample)
-                samples.append(sample)
+                ulaw_sample = self._linear_to_ulaw_sample(sample)
+                samples.append(ulaw_sample)
             
             return bytes(samples)
             
@@ -1067,18 +1068,34 @@ Content-Length: 0\r
             from src.conversation_loop import ConversationLoop, ConversationConfig
             
             # Create conversation configuration
-            conv_config = ConversationConfig(
-                enable_vad=True,
-                enable_noise_suppression=True,
-                enable_echo_cancellation=True,
-                openai_api_key=self.config.ai_provider.api_key,
-                openai_model=self.config.ai_provider.model,
-                voice_type=self.config.ai_provider.voice,
-                system_instructions="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
-                max_context_length=10,
-                silence_timeout=3.0,
-                max_silence_duration=10.0
-            )
+            if self.full_config and hasattr(self.full_config, 'ai_provider'):
+                ai_config = self.full_config.ai_provider
+                conv_config = ConversationConfig(
+                    enable_vad=True,
+                    enable_noise_suppression=True,
+                    enable_echo_cancellation=True,
+                    openai_api_key=ai_config.api_key,
+                    openai_model=ai_config.model,
+                    voice_type=ai_config.voice,
+                    system_instructions="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
+                    max_context_length=10,
+                    silence_timeout=3.0,
+                    max_silence_duration=10.0
+                )
+            else:
+                # Fallback configuration
+                conv_config = ConversationConfig(
+                    enable_vad=True,
+                    enable_noise_suppression=True,
+                    enable_echo_cancellation=True,
+                    openai_api_key="",
+                    openai_model="gpt-4o",
+                    voice_type="alloy",
+                    system_instructions="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
+                    max_context_length=10,
+                    silence_timeout=3.0,
+                    max_silence_duration=10.0
+                )
             
             # Create conversation loop
             conversation_loop = ConversationLoop(conv_config)
