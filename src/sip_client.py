@@ -406,13 +406,14 @@ User-Agent: Asterisk-AI-Voice-Agent/1.0\r
     
     def _build_sdp(self) -> str:
         """Build SDP (Session Description Protocol) for audio."""
-        # Use the configured local_ip (should be the public IP)
+        # For Docker port mapping, we need to advertise the public IP
+        # so Asterisk sends RTP to the host, which Docker maps to the container
         local_ip = self.config.local_ip
         if local_ip == "0.0.0.0":
-            # Fallback to the SIP host itself (public IP)
-            local_ip = self.config.host
+            # Use the public IP of the server (207.38.71.85)
+            local_ip = "207.38.71.85"
         
-        # Use the configured RTP port range start
+        # Use the configured RTP port range start (mapped by Docker)
         rtp_port = self.config.rtp_port_range[0]
         
         sdp = f"""v=0\r
