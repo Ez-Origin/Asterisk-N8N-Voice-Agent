@@ -127,10 +127,24 @@ class VoiceAgentEngine:
     
     async def _process_active_calls(self):
         """Process all active calls."""
-        if self.active_calls:
-            logger.info(f"Processing {len(self.active_calls)} active calls: {list(self.active_calls.keys())}")
+        if not self.active_calls:
+            return
+            
+        # Create a copy of items to avoid dictionary changed size during iteration
+        calls_to_process = list(self.active_calls.items())
         
-        for call_id, call_info in self.active_calls.items():
+        # Count calls that need processing
+        calls_needing_attention = 0
+        for call_id, call_info in calls_to_process:
+            if (call_info.state == "ringing" or 
+                (call_info.state == "connected" and not hasattr(call_info, 'conversation_started')) or
+                call_info.state == "ended"):
+                calls_needing_attention += 1
+        
+        if calls_needing_attention > 0:
+            logger.info(f"Processing {calls_needing_attention} calls that need attention")
+        
+        for call_id, call_info in calls_to_process:
             try:
                 # Only process calls that need attention
                 if call_info.state == "ringing":
