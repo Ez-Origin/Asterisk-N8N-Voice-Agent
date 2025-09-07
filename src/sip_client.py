@@ -938,8 +938,8 @@ Content-Length: 0\r
             
         except Exception as e:
             logger.error(f"Error generating TTS audio: {e}")
-            # Fall back to silence
-            return self._generate_silence(2.0)
+            # Fall back to test audio for debugging
+            return self._generate_test_audio()
     
     def _generate_silence(self, duration: float) -> bytes:
         """Generate silence for the specified duration."""
@@ -947,6 +947,45 @@ Content-Length: 0\r
         num_samples = int(sample_rate * duration)
         # Mu-law silence is 0xFF (not 0x00)
         return bytes([0xFF] * num_samples)
+    
+    def _generate_test_audio(self) -> bytes:
+        """Generate test audio that should be audible."""
+        try:
+            logger.info("Generating test audio pattern")
+            sample_rate = 8000
+            duration = 3.0  # 3 seconds
+            
+            import math
+            samples = []
+            
+            # Generate a more complex audio pattern that should be clearly audible
+            for i in range(int(sample_rate * duration)):
+                t = i / sample_rate
+                
+                # Create a multi-tone pattern
+                if t < 1.0:
+                    # 800 Hz tone for first second
+                    freq = 800
+                elif t < 2.0:
+                    # 1200 Hz tone for second second  
+                    freq = 1200
+                else:
+                    # 600 Hz tone for third second
+                    freq = 600
+                
+                # Generate sine wave with higher amplitude
+                sample = int(16383 * math.sin(2 * math.pi * freq * t))  # 50% amplitude
+                
+                # Convert to mu-law
+                ulaw_sample = self._linear_to_ulaw_sample(sample)
+                samples.append(ulaw_sample)
+            
+            logger.info(f"Generated {len(samples)} samples of test audio")
+            return bytes(samples)
+            
+        except Exception as e:
+            logger.error(f"Error generating test audio: {e}")
+            return self._generate_silence(2.0)
     
     async def _convert_wav_to_ulaw(self, wav_data: bytes) -> bytes:
         """Convert WAV audio data to mu-law at 8kHz."""
