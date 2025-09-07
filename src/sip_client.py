@@ -436,6 +436,8 @@ m=audio {self.rtp_port} RTP/AVP {' '.join([c.split()[0] for c in codec_list])}\r
 a=rtpmap:0 PCMU/8000\r
 a=rtpmap:8 PCMA/8000\r
 a=rtpmap:9 G722/8000\r
+a=ptime:20\r
+a=maxptime:150\r
 a=sendrecv\r
 """
         return sdp
@@ -1077,7 +1079,7 @@ Content-Length: 0\r
                     openai_api_key=ai_config.api_key,
                     openai_model=ai_config.model,
                     voice_type=ai_config.voice,
-                    system_instructions="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
+                    system_prompt="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
                     max_context_length=10,
                     silence_timeout=3.0,
                     max_silence_duration=10.0
@@ -1091,7 +1093,7 @@ Content-Length: 0\r
                     openai_api_key="",
                     openai_model="gpt-4o",
                     voice_type="alloy",
-                    system_instructions="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
+                    system_prompt="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
                     max_context_length=10,
                     silence_timeout=3.0,
                     max_silence_duration=10.0
