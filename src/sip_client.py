@@ -131,20 +131,27 @@ class SIPClient:
     async def start(self) -> bool:
         """Start the SIP client and register with Asterisk."""
         try:
+            # Determine the IP to bind to for direct media
+            bind_ip = self.config.local_ip
+            if bind_ip == "0.0.0.0":
+                # For host networking with direct media, use the public IP directly
+                bind_ip = "207.38.71.85"
+            
             # Create UDP socket for SIP signaling
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            logger.info(f"Attempting to bind to {self.config.local_ip}:{self.config.local_port}")
-            self.socket.bind((self.config.local_ip, self.config.local_port))
+            logger.info(f"Attempting to bind SIP to {bind_ip}:{self.config.local_port}")
+            self.socket.bind((bind_ip, self.config.local_port))
             self.socket.settimeout(1.0)  # 1 second timeout for non-blocking operation
-            logger.info(f"Successfully bound to {self.config.local_ip}:{self.config.local_port}")
+            logger.info(f"Successfully bound SIP to {bind_ip}:{self.config.local_port}")
             
-            # Create UDP socket for RTP audio
+            # Create UDP socket for RTP audio - bind to public IP for direct media
             self.rtp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.rtp_socket.bind(('0.0.0.0', self.rtp_port))
+            rtp_bind_ip = bind_ip  # Use same IP as SIP for direct media
+            self.rtp_socket.bind((rtp_bind_ip, self.rtp_port))
             
             self.running = True
-            logger.info(f"SIP client started on {self.config.local_ip}:{self.config.local_port}")
-            logger.info(f"RTP socket bound to port {self.rtp_port}")
+            logger.info(f"SIP client started on {bind_ip}:{self.config.local_port}")
+            logger.info(f"RTP socket bound to {rtp_bind_ip}:{self.rtp_port} for direct media")
             
             # Start background tasks
             asyncio.create_task(self._message_loop())
@@ -300,9 +307,9 @@ class SIPClient:
     
     def _build_register_message(self) -> str:
         """Build a SIP REGISTER message."""
-        # Use public IP for registration contact, but local IP for Via
-        public_ip = self.config.local_ip if self.config.local_ip != "0.0.0.0" else self.config.host
-        via = f"SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
+        # Use public IP for direct media registration
+        public_ip = self.config.local_ip if self.config.local_ip != "0.0.0.0" else "207.38.71.85"
+        via = f"SIP/2.0/UDP {public_ip}:{self.config.local_port};branch={self._branch}"
         from_header = f"<sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
         to_header = f"<sip:{self.config.extension}@{self.config.host}>"
         contact = f"<sip:{self.config.extension}@{public_ip}:{self.config.local_port}>"
@@ -406,14 +413,14 @@ User-Agent: Asterisk-AI-Voice-Agent/1.0\r
     
     def _build_sdp(self) -> str:
         """Build SDP (Session Description Protocol) for audio."""
-        # For Docker port mapping, we need to advertise the public IP
-        # so Asterisk sends RTP to the host, which Docker maps to the container
+        # For direct media with host networking, advertise the public IP
+        # so callers can send RTP directly to the AI agent
         local_ip = self.config.local_ip
         if local_ip == "0.0.0.0":
-            # Use the public IP of the server (207.38.71.85)
+            # Use the public IP of the server for direct media
             local_ip = "207.38.71.85"
         
-        # Use the configured RTP port range start (mapped by Docker)
+        # Use the configured RTP port range start (bound to public IP)
         rtp_port = self.config.rtp_port_range[0]
         
         sdp = f"""v=0\r
@@ -515,10 +522,12 @@ a=sendrecv\r
             # Build authenticated REGISTER message
             auth_header = f'Authorization: Digest username="{self.config.extension}", realm="{realm}", nonce="{nonce}", uri="sip:{self.config.host}", response="{response_hash}"'
             
-            via = f"SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._branch}"
+            # Use public IP for direct media
+            public_ip = self.config.local_ip if self.config.local_ip != "0.0.0.0" else "207.38.71.85"
+            via = f"SIP/2.0/UDP {public_ip}:{self.config.local_port};branch={self._branch}"
             from_header = f"<sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
             to_header = f"<sip:{self.config.extension}@{self.config.host}>"
-            contact = f"<sip:{self.config.extension}@{self.config.local_ip}:{self.config.local_port}>"
+            contact = f"<sip:{self.config.extension}@{public_ip}:{self.config.local_port}>"
             
             message = f"""REGISTER sip:{self.config.host} SIP/2.0\r
 Via: {via}\r
