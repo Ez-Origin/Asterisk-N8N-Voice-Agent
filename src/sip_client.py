@@ -634,11 +634,8 @@ Content-Length: 0\r
             ok_msg = self._build_ok_response(call_id, message)
             await self._send_message(ok_msg)
             
-            # Update call state to connected after sending 200 OK
-            call_info.state = "connected"
-            
-            # Start RTP audio handling
-            asyncio.create_task(self._handle_rtp_audio(call_id))
+            # Update call state to ringing after sending 200 OK (will be connected on ACK)
+            call_info.state = "ringing"
             
             logger.info(f"Incoming call {call_id} from {from_user} - state: {call_info.state}, RTP: {remote_ip}:{remote_rtp_port}")
             
@@ -656,10 +653,13 @@ Content-Length: 0\r
                     self.calls[call_id].state = "connected"
                     logger.info(f"Call {call_id} established - ACK received")
                     
-                    # Mark RTP as started to prevent multiple handlers
+                    # Start RTP audio handling now that call is fully established
                     if not hasattr(self.calls[call_id], 'rtp_started'):
                         self.calls[call_id].rtp_started = True
-                        logger.info(f"RTP handling marked as started for call {call_id}")
+                        logger.info(f"Starting RTP audio handling for call {call_id}")
+                        asyncio.create_task(self._handle_rtp_audio(call_id))
+                    else:
+                        logger.info(f"RTP already started for call {call_id}")
                 else:
                     logger.warning(f"ACK received for unknown call {call_id}")
         except Exception as e:
@@ -856,17 +856,10 @@ Content-Length: 0\r
         """Handle RTP audio for a call."""
         try:
             if call_id not in self.calls:
+                logger.warning(f"Call {call_id} not found in active calls")
                 return
             
             call_info = self.calls[call_id]
-            
-            # Check if RTP is already started for this call
-            if hasattr(call_info, 'rtp_started') and call_info.rtp_started:
-                logger.info(f"RTP already started for call {call_id}, skipping")
-                return
-            
-            # Mark RTP as started
-            call_info.rtp_started = True
             logger.info(f"Starting RTP audio handling for call {call_id}")
             
             # Use the main RTP socket
