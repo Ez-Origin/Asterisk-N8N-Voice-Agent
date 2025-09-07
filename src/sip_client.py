@@ -686,6 +686,10 @@ Content-Length: 0\r
                     self.calls[call_id].state = "ended"
                     logger.info(f"Call {call_id} terminated - state set to ended")
                     
+                    # Send 200 OK response to BYE
+                    bye_response = self._build_bye_response(call_id, message)
+                    await self._send_message(bye_response)
+                    
                     # Schedule cleanup after a delay to allow engine to process
                     asyncio.create_task(self._cleanup_call_delayed(call_id))
                 if call_id in self.call_handlers:
@@ -830,6 +834,31 @@ Content-Length: {len(sdp)}\r
 \r
 {sdp}"""
         return message
+    
+    def _build_bye_response(self, call_id: str, original_message: str) -> str:
+        """Build 200 OK response for BYE."""
+        # Extract headers from original message
+        via_match = re.search(r'Via: ([^\r\n]+)', original_message)
+        from_match = re.search(r'From: ([^\r\n]+)', original_message)
+        to_match = re.search(r'To: ([^\r\n]+)', original_message)
+        cseq_match = re.search(r'CSeq: ([^\r\n]+)', original_message)
+        
+        via_header = via_match.group(1) if via_match else ""
+        from_header = from_match.group(1) if from_match else ""
+        to_header = to_match.group(1) if to_match else ""
+        cseq_header = cseq_match.group(1) if cseq_match else "1 BYE"
+        
+        response = f"""SIP/2.0 200 OK\r
+Via: {via_header}\r
+From: {from_header}\r
+To: {to_header}\r
+Call-ID: {call_id}\r
+CSeq: {cseq_header}\r
+Content-Length: 0\r
+\r
+"""
+        
+        return response
     
     async def _handle_rtp_audio(self, call_id: str):
         """Handle RTP audio for a call."""
