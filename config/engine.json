@@ -3,7 +3,7 @@
   "asterisk_version": "16",
   "debug": false,
   "sip": {
-    "host": "voiprnd.nemtclouddispatch.com",
+    "host": "172.17.0.1",
     "port": 5060,
     "local_port": 15060,
     "local_ip": "207.38.71.85",
