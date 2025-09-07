@@ -647,13 +647,24 @@ Content-Length: 0\r
             if call_id_match:
                 call_id = call_id_match.group(1).strip()
                 if call_id in self.calls:
-                    del self.calls[call_id]
+                    # Update call state to ended instead of immediately removing
+                    self.calls[call_id].state = "ended"
+                    logger.info(f"Call {call_id} terminated - state set to ended")
+                    
+                    # Schedule cleanup after a delay to allow engine to process
+                    asyncio.create_task(self._cleanup_call_delayed(call_id))
                 if call_id in self.call_handlers:
                     del self.call_handlers[call_id]
-                logger.info(f"Call {call_id} terminated")
                 
         except Exception as e:
             logger.error(f"Error handling call termination: {e}")
+    
+    async def _cleanup_call_delayed(self, call_id: str, delay: float = 5.0):
+        """Clean up call after a delay to allow engine processing."""
+        await asyncio.sleep(delay)
+        if call_id in self.calls:
+            del self.calls[call_id]
+            logger.info(f"Call {call_id} cleaned up after delay")
     
     async def hangup_call(self, call_id: str):
         """Hang up a specific call."""
