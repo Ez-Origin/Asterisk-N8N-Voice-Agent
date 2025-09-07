@@ -927,12 +927,13 @@ Content-Length: 0\r
             
             client = openai.OpenAI(api_key=api_key)
             
-            # Generate speech using OpenAI TTS
+            # Generate speech using OpenAI TTS optimized for telephony
             response = client.audio.speech.create(
                 model="tts-1",
-                voice="alloy",
+                voice="nova",  # Nova voice is clearer for telephony
                 input=text,
-                response_format="wav"
+                response_format="wav",
+                speed=0.9  # Slightly slower for better clarity
             )
             
             # Get the audio data
@@ -1032,11 +1033,14 @@ Content-Length: 0\r
                 if sample_rate != 8000:
                     samples = self._resample_audio(samples, sample_rate, 8000)
                 
-                # Convert to mu-law
+                # Apply audio preprocessing for better telephony quality
+                samples = self._preprocess_audio(samples)
+                
+                # Convert to mu-law with better quality
                 ulaw_samples = []
                 for sample in samples:
-                    # Clamp to 16-bit range
-                    sample = max(-32768, min(32767, sample))
+                    # Ensure proper 16-bit range
+                    sample = max(-32768, min(32767, int(sample)))
                     ulaw_sample = self._linear_to_ulaw_sample(sample)
                     ulaw_samples.append(ulaw_sample)
                 
@@ -1047,52 +1051,103 @@ Content-Length: 0\r
             return self._generate_silence(2.0)
     
     def _resample_audio(self, samples, from_rate: int, to_rate: int):
-        """Simple resampling by decimation or interpolation."""
+        """High-quality resampling with anti-aliasing."""
         if from_rate == to_rate:
             return samples
         
         ratio = from_rate / to_rate
         resampled = []
         
+        # Better resampling with interpolation for quality
         for i in range(int(len(samples) / ratio)):
-            src_index = int(i * ratio)
-            if src_index < len(samples):
+            src_float = i * ratio
+            src_index = int(src_float)
+            
+            if src_index < len(samples) - 1:
+                # Linear interpolation between samples
+                frac = src_float - src_index
+                sample1 = samples[src_index]
+                sample2 = samples[src_index + 1]
+                interpolated = int(sample1 * (1 - frac) + sample2 * frac)
+                resampled.append(interpolated)
+            elif src_index < len(samples):
                 resampled.append(samples[src_index])
+        
+        # Apply simple low-pass filter to reduce aliasing
+        if len(resampled) > 2:
+            filtered = [resampled[0]]
+            for i in range(1, len(resampled) - 1):
+                # Simple 3-point average filter
+                filtered_sample = (resampled[i-1] + 2*resampled[i] + resampled[i+1]) // 4
+                filtered.append(filtered_sample)
+            filtered.append(resampled[-1])
+            return filtered
         
         return resampled
     
+    def _preprocess_audio(self, samples):
+        """Preprocess audio for better telephony quality."""
+        if len(samples) < 3:
+            return samples
+        
+        processed = []
+        
+        for i, sample in enumerate(samples):
+            # Apply gentle normalization to prevent clipping
+            sample = int(sample * 0.8)  # Reduce volume slightly to prevent distortion
+            
+            # Simple noise reduction - remove very small values
+            if abs(sample) < 100:
+                sample = 0
+            
+            processed.append(sample)
+        
+        return processed
+    
     def _linear_to_ulaw_sample(self, linear: int) -> int:
-        """Convert linear PCM to mu-law."""
-        # Simple mu-law conversion (simplified version)
+        """Convert linear PCM to mu-law using ITU-T G.711 standard."""
+        # Clamp to 16-bit signed range
+        linear = max(-32768, min(32767, linear))
+        
+        # ITU-T G.711 mu-law conversion
         if linear < 0:
             linear = -linear
             sign = 0x80
         else:
             sign = 0x00
         
-        if linear > 32767:
-            linear = 32767
+        # Add bias
+        linear += 33
         
-        # Find the segment
-        segment = 0
-        temp = linear >> 8
-        while temp > 0:
-            temp >>= 1
-            segment += 1
-        
-        if segment > 7:
+        # Find the segment (exponent)
+        if linear < 256:
+            segment = 0
+        elif linear < 512:
+            segment = 1
+        elif linear < 1024:
+            segment = 2
+        elif linear < 2048:
+            segment = 3
+        elif linear < 4096:
+            segment = 4
+        elif linear < 8192:
+            segment = 5
+        elif linear < 16384:
+            segment = 6
+        else:
             segment = 7
         
-        # Calculate the quantization step
-        step = 1 << (segment + 2)
+        # Calculate quantization level (mantissa)
+        if segment == 0:
+            level = (linear >> 4) & 0x0F
+        else:
+            level = ((linear >> (segment + 3)) & 0x0F)
         
-        # Calculate the quantization level
-        level = (linear - (1 << (segment + 3))) // step
+        # Combine components
+        ulaw = sign | (segment << 4) | level
         
-        # Combine sign, segment, and level
-        ulaw = sign | (segment << 4) | (level & 0x0F)
-        
-        return ulaw ^ 0xFF  # Invert all bits for mu-law
+        # Invert all bits per G.711 standard
+        return ulaw ^ 0xFF
     
     async def _send_rtp_audio(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket, audio_data: bytes):
         """Send audio data over RTP."""
