@@ -608,15 +608,21 @@ Content-Length: 0\r
             call_id = call_id_match.group(1).strip()
             from_user = from_match.group(1)
             
+            # Parse SDP to extract remote RTP information
+            rtp_info = self._parse_sdp(message)
+            remote_rtp_port = rtp_info.get('port', 0)
+            remote_ip = rtp_info.get('ip', addr[0])
+            codec = rtp_info.get('codec', 'ulaw')
+            
             # Create call info
             call_info = CallInfo(
                 call_id=call_id,
                 from_user=from_user,
                 to_user=self.config.extension,
                 local_rtp_port=self.rtp_port,
-                remote_rtp_port=0,  # Will be updated from SDP
-                remote_ip=addr[0],
-                codec="ulaw",  # Default
+                remote_rtp_port=remote_rtp_port,
+                remote_ip=remote_ip,
+                codec=codec,
                 start_time=time.time()
             )
             
@@ -638,7 +644,7 @@ Content-Length: 0\r
             # Start RTP audio handling
             asyncio.create_task(self._handle_rtp_audio(call_id))
             
-            logger.info(f"Incoming call {call_id} from {from_user} - state: {call_info.state}")
+            logger.info(f"Incoming call {call_id} from {from_user} - state: {call_info.state}, RTP: {remote_ip}:{remote_rtp_port}")
             
         except Exception as e:
             logger.error(f"Error handling incoming call: {e}")
@@ -829,38 +835,194 @@ Content-Length: {len(sdp)}\r
             call_info = self.calls[call_id]
             logger.info(f"Starting RTP audio handling for call {call_id}")
             
-            # This is a placeholder for RTP audio handling
-            # In a real implementation, this would:
-            # 1. Receive RTP packets from the remote party
-            # 2. Decode audio using the negotiated codec
-            # 3. Process audio (VAD, noise suppression, etc.)
-            # 4. Send audio to AI provider
-            # 5. Receive audio from AI provider
-            # 6. Encode audio using the negotiated codec
-            # 7. Send RTP packets to the remote party
+            # Create RTP socket for this call
+            rtp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            rtp_socket.bind(('0.0.0.0', 0))  # Bind to any available port
             
-            # Send silence packets to keep the call alive
-            silence_packet = b'\x00' * 160  # 20ms of silence at 8kHz
-            packet_count = 0
-            
-            while call_id in self.calls and self.calls[call_id].state != "ended" and self.running:
-                try:
-                    # In a real implementation, we would send RTP packets here
-                    # For now, we just log that we're keeping the call alive
-                    packet_count += 1
-                    if packet_count % 50 == 0:  # Log every second (50 * 20ms = 1s)
-                        logger.info(f"RTP audio handling active for call {call_id} - {packet_count} packets sent")
-                    
-                    await asyncio.sleep(0.02)  # 20ms intervals
-                    
-                except Exception as e:
-                    logger.error(f"Error in RTP loop for call {call_id}: {e}")
-                    break
+            try:
+                # Send initial greeting message
+                await self._play_ai_greeting(call_id, call_info, rtp_socket)
+                
+                # Keep the call alive with silence packets
+                await self._keep_call_alive(call_id, call_info, rtp_socket)
+                
+            finally:
+                rtp_socket.close()
             
             logger.info(f"RTP audio handling ended for call {call_id}")
             
         except Exception as e:
             logger.error(f"Error in RTP audio handling for call {call_id}: {e}")
+    
+    async def _play_ai_greeting(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket):
+        """Play the AI greeting message over RTP."""
+        try:
+            logger.info(f"Playing AI greeting for call {call_id}")
+            
+            # Generate greeting audio using TTS
+            greeting_text = "Hello, I am an AI Assistant for Jugaar LLC. How can I help you today?"
+            audio_data = await self._generate_tts_audio(greeting_text)
+            
+            if audio_data:
+                # Send audio over RTP
+                await self._send_rtp_audio(call_id, call_info, rtp_socket, audio_data)
+                logger.info(f"AI greeting played for call {call_id}")
+            else:
+                logger.warning(f"Failed to generate TTS audio for call {call_id}")
+                
+        except Exception as e:
+            logger.error(f"Error playing AI greeting for call {call_id}: {e}")
+    
+    async def _generate_tts_audio(self, text: str) -> bytes:
+        """Generate TTS audio for the given text."""
+        try:
+            # For now, generate a simple tone as placeholder
+            # In a real implementation, this would use the TTS handler
+            sample_rate = 8000
+            duration = 2.0  # 2 seconds
+            frequency = 440  # A4 note
+            
+            import math
+            samples = []
+            for i in range(int(sample_rate * duration)):
+                t = i / sample_rate
+                # Generate a simple sine wave
+                sample = int(32767 * 0.3 * math.sin(2 * math.pi * frequency * t))
+                # Convert to 8-bit mu-law
+                sample = self._linear_to_ulaw(sample)
+                samples.append(sample)
+            
+            return bytes(samples)
+            
+        except Exception as e:
+            logger.error(f"Error generating TTS audio: {e}")
+            return None
+    
+    def _linear_to_ulaw(self, linear: int) -> int:
+        """Convert linear PCM to mu-law."""
+        # Simple mu-law conversion (simplified version)
+        if linear < 0:
+            linear = -linear
+            sign = 0x80
+        else:
+            sign = 0x00
+        
+        if linear > 32767:
+            linear = 32767
+        
+        # Find the segment
+        segment = 0
+        temp = linear >> 8
+        while temp > 0:
+            temp >>= 1
+            segment += 1
+        
+        if segment > 7:
+            segment = 7
+        
+        # Calculate the quantization step
+        step = 1 << (segment + 2)
+        
+        # Calculate the quantization level
+        level = (linear - (1 << (segment + 3))) // step
+        
+        # Combine sign, segment, and level
+        ulaw = sign | (segment << 4) | (level & 0x0F)
+        
+        return ulaw ^ 0xFF  # Invert all bits for mu-law
+    
+    async def _send_rtp_audio(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket, audio_data: bytes):
+        """Send audio data over RTP."""
+        try:
+            # RTP header fields
+            version = 2
+            padding = 0
+            extension = 0
+            cc = 0
+            marker = 0
+            payload_type = 0  # PCMU
+            sequence_number = 0
+            timestamp = 0
+            ssrc = 12345  # Synchronization source identifier
+            
+            # Send audio in 20ms chunks (160 bytes at 8kHz)
+            chunk_size = 160
+            for i in range(0, len(audio_data), chunk_size):
+                if call_id not in self.calls or self.calls[call_id].state == "ended":
+                    break
+                
+                chunk = audio_data[i:i + chunk_size]
+                if len(chunk) < chunk_size:
+                    # Pad with silence
+                    chunk += b'\x00' * (chunk_size - len(chunk))
+                
+                # Build RTP packet
+                rtp_header = self._build_rtp_header(
+                    version, padding, extension, cc, marker, payload_type,
+                    sequence_number, timestamp, ssrc
+                )
+                
+                rtp_packet = rtp_header + chunk
+                
+                # Send to remote RTP endpoint
+                if call_info.remote_rtp_port > 0:
+                    rtp_socket.sendto(rtp_packet, (call_info.remote_ip, call_info.remote_rtp_port))
+                
+                sequence_number += 1
+                timestamp += 160  # 20ms at 8kHz
+                
+                await asyncio.sleep(0.02)  # 20ms intervals
+                
+        except Exception as e:
+            logger.error(f"Error sending RTP audio for call {call_id}: {e}")
+    
+    def _build_rtp_header(self, version: int, padding: int, extension: int, cc: int, 
+                         marker: int, payload_type: int, sequence_number: int, 
+                         timestamp: int, ssrc: int) -> bytes:
+        """Build RTP packet header."""
+        # First byte: V(2) P(1) X(1) CC(4)
+        byte1 = (version << 6) | (padding << 5) | (extension << 4) | cc
+        
+        # Second byte: M(1) PT(7)
+        byte2 = (marker << 7) | payload_type
+        
+        # Sequence number (16 bits)
+        seq_bytes = sequence_number.to_bytes(2, 'big')
+        
+        # Timestamp (32 bits)
+        ts_bytes = timestamp.to_bytes(4, 'big')
+        
+        # SSRC (32 bits)
+        ssrc_bytes = ssrc.to_bytes(4, 'big')
+        
+        return bytes([byte1, byte2]) + seq_bytes + ts_bytes + ssrc_bytes
+    
+    async def _keep_call_alive(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket):
+        """Keep the call alive by sending silence packets."""
+        try:
+            silence_packet = b'\x00' * 160  # 20ms of silence at 8kHz
+            packet_count = 0
+            
+            while call_id in self.calls and self.calls[call_id].state != "ended" and self.running:
+                try:
+                    # Send silence packet
+                    if call_info.remote_rtp_port > 0:
+                        rtp_header = self._build_rtp_header(2, 0, 0, 0, 0, 0, packet_count, packet_count * 160, 12345)
+                        rtp_packet = rtp_header + silence_packet
+                        rtp_socket.sendto(rtp_packet, (call_info.remote_ip, call_info.remote_rtp_port))
+                    
+                    packet_count += 1
+                    if packet_count % 50 == 0:  # Log every second (50 * 20ms = 1s)
+                        logger.info(f"RTP keep-alive active for call {call_id} - {packet_count} packets sent")
+                    
+                    await asyncio.sleep(0.02)  # 20ms intervals
+                    
+                except Exception as e:
+                    logger.error(f"Error in RTP keep-alive loop for call {call_id}: {e}")
+                    break
+                    
+        except Exception as e:
+            logger.error(f"Error in RTP keep-alive for call {call_id}: {e}")
     
     async def _registration_loop(self):
         """Periodic registration refresh loop."""
