@@ -877,8 +877,8 @@ Content-Length: 0\r
                 # Send initial greeting message
                 await self._play_ai_greeting(call_id, call_info, rtp_socket)
                 
-                # Keep the call alive with silence packets
-                await self._keep_call_alive(call_id, call_info, rtp_socket)
+                # Start conversation loop integration
+                await self._start_conversation_loop(call_id, call_info, rtp_socket)
                 
             finally:
                 rtp_socket.close()
@@ -1057,6 +1057,169 @@ Content-Length: 0\r
                     
         except Exception as e:
             logger.error(f"Error in RTP keep-alive for call {call_id}: {e}")
+    
+    async def _start_conversation_loop(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket):
+        """Start conversation loop integration for the call."""
+        try:
+            logger.info(f"Starting conversation loop for call {call_id}")
+            
+            # Import here to avoid circular imports
+            from src.conversation_loop import ConversationLoop, ConversationConfig
+            
+            # Create conversation configuration
+            conv_config = ConversationConfig(
+                enable_vad=True,
+                enable_noise_suppression=True,
+                enable_echo_cancellation=True,
+                openai_api_key=self.config.ai_provider.api_key,
+                openai_model=self.config.ai_provider.model,
+                voice_type=self.config.ai_provider.voice,
+                system_instructions="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
+                max_context_length=10,
+                silence_timeout=3.0,
+                max_silence_duration=10.0
+            )
+            
+            # Create conversation loop
+            conversation_loop = ConversationLoop(conv_config)
+            
+            # Start the conversation loop
+            if await conversation_loop.start():
+                logger.info(f"Conversation loop started for call {call_id}")
+                
+                # Store the conversation loop for this call
+                if not hasattr(self, 'conversation_loops'):
+                    self.conversation_loops = {}
+                self.conversation_loops[call_id] = conversation_loop
+                
+                # Start bidirectional audio processing
+                await self._process_bidirectional_audio(call_id, call_info, rtp_socket, conversation_loop)
+                
+            else:
+                logger.error(f"Failed to start conversation loop for call {call_id}")
+                # Fall back to keep-alive mode
+                await self._keep_call_alive(call_id, call_info, rtp_socket)
+                
+        except Exception as e:
+            logger.error(f"Error starting conversation loop for call {call_id}: {e}")
+            # Fall back to keep-alive mode
+            await self._keep_call_alive(call_id, call_info, rtp_socket)
+    
+    async def _process_bidirectional_audio(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket, conversation_loop: ConversationLoop):
+        """Process bidirectional audio between RTP and conversation loop."""
+        try:
+            logger.info(f"Starting bidirectional audio processing for call {call_id}")
+            
+            # Create a buffer for incoming audio
+            audio_buffer = bytearray()
+            
+            # Start receiving audio from the caller
+            while call_id in self.calls and self.calls[call_id].state != "ended" and self.running:
+                try:
+                    # Receive RTP packet
+                    data, addr = rtp_socket.recvfrom(1500)
+                    
+                    if len(data) > 12:  # RTP header is 12 bytes
+                        # Extract audio payload (skip RTP header)
+                        audio_payload = data[12:]
+                        
+                        # Convert mu-law to linear PCM for conversation loop
+                        linear_audio = self._ulaw_to_linear(audio_payload)
+                        
+                        # Add to conversation loop
+                        await conversation_loop.process_audio_chunk(linear_audio)
+                        
+                        # Check if conversation loop has generated response audio
+                        if hasattr(conversation_loop, 'get_audio_output'):
+                            response_audio = conversation_loop.get_audio_output()
+                            if response_audio:
+                                # Convert to mu-law and send over RTP
+                                ulaw_audio = self._linear_to_ulaw(response_audio)
+                                await self._send_rtp_audio(call_id, call_info, rtp_socket, ulaw_audio)
+                    
+                    await asyncio.sleep(0.02)  # 20ms intervals
+                    
+                except socket.timeout:
+                    # No data received, continue
+                    continue
+                except Exception as e:
+                    logger.error(f"Error processing audio for call {call_id}: {e}")
+                    break
+                    
+        except Exception as e:
+            logger.error(f"Error in bidirectional audio processing for call {call_id}: {e}")
+    
+    def _ulaw_to_linear(self, ulaw_data: bytes) -> bytes:
+        """Convert mu-law to linear PCM."""
+        linear_data = bytearray()
+        for byte in ulaw_data:
+            # Simple mu-law to linear conversion
+            ulaw = byte ^ 0xFF  # Invert bits
+            sign = ulaw & 0x80
+            exponent = (ulaw >> 4) & 0x07
+            mantissa = ulaw & 0x0F
+            
+            if exponent == 0:
+                linear = (mantissa << 1) + 33
+            else:
+                linear = ((mantissa << 1) + 33) << (exponent + 2)
+            
+            if sign:
+                linear = -linear
+            
+            # Convert to 16-bit linear PCM
+            linear_bytes = linear.to_bytes(2, 'little', signed=True)
+            linear_data.extend(linear_bytes)
+        
+        return bytes(linear_data)
+    
+    def _linear_to_ulaw(self, linear_data: bytes) -> bytes:
+        """Convert linear PCM to mu-law."""
+        ulaw_data = bytearray()
+        
+        # Process 16-bit samples (2 bytes each)
+        for i in range(0, len(linear_data), 2):
+            if i + 1 < len(linear_data):
+                # Convert little-endian 16-bit to signed integer
+                linear = int.from_bytes(linear_data[i:i+2], 'little', signed=True)
+                
+                # Convert to mu-law
+                ulaw = self._linear_to_ulaw_sample(linear)
+                ulaw_data.append(ulaw)
+        
+        return bytes(ulaw_data)
+    
+    def _linear_to_ulaw_sample(self, linear: int) -> int:
+        """Convert a single linear PCM sample to mu-law."""
+        if linear < 0:
+            linear = -linear
+            sign = 0x80
+        else:
+            sign = 0x00
+        
+        if linear > 32767:
+            linear = 32767
+        
+        # Find the segment
+        segment = 0
+        temp = linear >> 8
+        while temp > 0:
+            temp >>= 1
+            segment += 1
+        
+        if segment > 7:
+            segment = 7
+        
+        # Calculate the quantization step
+        step = 1 << (segment + 2)
+        
+        # Calculate the quantization level
+        level = (linear - (1 << (segment + 3))) // step
+        
+        # Combine sign, segment, and level
+        ulaw = sign | (segment << 4) | (level & 0x0F)
+        
+        return ulaw ^ 0xFF  # Invert all bits for mu-law
     
     async def _registration_loop(self):
         """Periodic registration refresh loop."""
