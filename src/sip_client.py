@@ -695,8 +695,10 @@ Content-Length: 0\r
                     bye_response = self._build_bye_response(call_id, message)
                     await self._send_message(bye_response)
                     
-                    # Schedule cleanup after a delay to allow engine to process
-                    asyncio.create_task(self._cleanup_call_delayed(call_id))
+                    # Remove call immediately since engine handles cleanup
+                    if call_id in self.calls:
+                        del self.calls[call_id]
+                        logger.info(f"Call {call_id} removed from SIP client calls")
                 if call_id in self.call_handlers:
                     del self.call_handlers[call_id]
                 
