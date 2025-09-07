@@ -650,6 +650,33 @@ Content-Length: 0\r
         except Exception as e:
             logger.error(f"Error handling call termination: {e}")
     
+    async def hangup_call(self, call_id: str):
+        """Hang up a specific call."""
+        try:
+            if call_id in self.calls:
+                call_info = self.calls[call_id]
+                # Send BYE message to terminate the call
+                bye_msg = self._build_bye_message(call_id, call_info)
+                await self._send_message(bye_msg)
+                logger.info(f"Sent BYE for call {call_id}")
+            else:
+                logger.warning(f"Call {call_id} not found for hangup")
+        except Exception as e:
+            logger.error(f"Error hanging up call {call_id}: {e}")
+    
+    def _build_bye_message(self, call_id: str, call_info: CallInfo) -> str:
+        """Build a BYE message to terminate a call."""
+        return f"""BYE sip:{call_info.from_user}@voiprnd.nemtclouddispatch.com SIP/2.0\r
+Via: SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch=z9hG4bKPjbye\r
+From: <sip:{call_info.to_user}@voiprnd.nemtclouddispatch.com>;tag=as{call_id[:8]}\r
+To: <sip:{call_info.from_user}@voiprnd.nemtclouddispatch.com>;tag=as{call_id[8:16]}\r
+Call-ID: {call_id}\r
+CSeq: 2 BYE\r
+User-Agent: Asterisk-AI-Voice-Agent/1.0\r
+Content-Length: 0\r
+\r
+"""
+    
     async def _handle_options_request(self, message: str, addr: tuple):
         """Handle OPTIONS request (health check)."""
         try:

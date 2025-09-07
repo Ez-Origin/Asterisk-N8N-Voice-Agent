@@ -135,21 +135,85 @@ class VoiceAgentEngine:
     
     async def _handle_call(self, call_id: str, call_info: CallInfo):
         """Handle a specific call."""
-        # This is where we would integrate with:
-        # 1. Audio processing (VAD, noise suppression, echo cancellation)
-        # 2. AI provider (OpenAI Realtime API, Azure Speech, etc.)
-        # 3. Conversation management
-        
-        # For now, just log the call information
         if call_info.state == "ringing":
             logger.info(f"Call {call_id} is ringing from {call_info.from_user}")
-            # In a real implementation, we would answer the call here
-            # and start the conversation loop
+            # Answer the call and start conversation loop
+            await self._answer_call(call_id, call_info)
         elif call_info.state == "connected":
             logger.info(f"Call {call_id} is connected with {call_info.from_user}")
-            # In a real implementation, we would process audio here
+            # Process audio through conversation loop
+            await self._process_call_audio(call_id, call_info)
         elif call_info.state == "ended":
             logger.info(f"Call {call_id} has ended")
+            # Clean up conversation loop
+            await self._cleanup_call(call_id)
+    
+    async def _answer_call(self, call_id: str, call_info: CallInfo):
+        """Answer an incoming call and start conversation loop."""
+        try:
+            logger.info(f"Answering call {call_id} from {call_info.from_user}")
+            
+            # Import here to avoid circular imports
+            from src.conversation_loop import ConversationLoop, ConversationConfig
+            
+            # Create conversation configuration
+            conv_config = ConversationConfig(
+                enable_vad=True,
+                enable_noise_suppression=True,
+                enable_echo_cancellation=True,
+                openai_api_key=self.config.ai_provider.api_key,
+                openai_model=self.config.ai_provider.model,
+                voice_type=self.config.ai_provider.voice,
+                system_instructions="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
+                max_context_length=10,
+                silence_timeout=3.0,
+                max_silence_duration=10.0
+            )
+            
+            # Create conversation loop
+            conversation_loop = ConversationLoop(conv_config)
+            
+            # Start the conversation loop
+            if await conversation_loop.start():
+                logger.info(f"Conversation loop started for call {call_id}")
+                # Store the conversation loop for this call
+                if not hasattr(self, 'conversation_loops'):
+                    self.conversation_loops = {}
+                self.conversation_loops[call_id] = conversation_loop
+                
+                # Update call state to connected
+                call_info.state = "connected"
+            else:
+                logger.error(f"Failed to start conversation loop for call {call_id}")
+                # Hang up the call
+                await self.sip_client.hangup_call(call_id)
+                
+        except Exception as e:
+            logger.error(f"Error answering call {call_id}: {e}")
+            # Hang up the call
+            await self.sip_client.hangup_call(call_id)
+    
+    async def _process_call_audio(self, call_id: str, call_info: CallInfo):
+        """Process audio for an active call."""
+        try:
+            if hasattr(self, 'conversation_loops') and call_id in self.conversation_loops:
+                conversation_loop = self.conversation_loops[call_id]
+                # Process audio through the conversation loop
+                # This would be called with audio data from RTP
+                pass
+        except Exception as e:
+            logger.error(f"Error processing audio for call {call_id}: {e}")
+    
+    async def _cleanup_call(self, call_id: str):
+        """Clean up resources for a ended call."""
+        try:
+            if hasattr(self, 'conversation_loops') and call_id in self.conversation_loops:
+                conversation_loop = self.conversation_loops[call_id]
+                await conversation_loop.stop()
+                del self.conversation_loops[call_id]
+                logger.info(f"Cleaned up conversation loop for call {call_id}")
+        except Exception as e:
+            logger.error(f"Error cleaning up call {call_id}: {e}")
     
     def _on_registration_change(self, registered: bool):
         """Handle SIP registration status changes."""
