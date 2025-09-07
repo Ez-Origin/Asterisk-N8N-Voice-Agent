@@ -962,7 +962,7 @@ Content-Length: 0\r
     async def _send_rtp_audio(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket, audio_data: bytes):
         """Send audio data over RTP."""
         try:
-            if not call_info.remote_rtp_ip or not call_info.remote_rtp_port:
+            if not call_info.remote_ip or not call_info.remote_rtp_port:
                 logger.warning(f"No remote RTP endpoint for call {call_id}")
                 return
             
@@ -1000,12 +1000,12 @@ Content-Length: 0\r
                 rtp_packet = rtp_header + chunk
                 
                 # Send to remote RTP endpoint
-                rtp_socket.sendto(rtp_packet, (call_info.remote_rtp_ip, call_info.remote_rtp_port))
+                rtp_socket.sendto(rtp_packet, (call_info.remote_ip, call_info.remote_rtp_port))
                 
                 # Debug logging for first few packets
                 if packets_sent < max_debug_packets:
                     logger.info(f"RTP DEBUG - Call {call_id}: Sent packet {packets_sent + 1}")
-                    logger.info(f"  - To: {call_info.remote_rtp_ip}:{call_info.remote_rtp_port}")
+                    logger.info(f"  - To: {call_info.remote_ip}:{call_info.remote_rtp_port}")
                     logger.info(f"  - Size: {len(rtp_packet)} bytes (header: {len(rtp_header)}, audio: {len(chunk)})")
                     logger.info(f"  - Seq: {sequence_number}, TS: {timestamp}, SSRC: {ssrc}")
                     logger.info(f"  - Audio data (first 10 bytes): {chunk[:10].hex()}")
