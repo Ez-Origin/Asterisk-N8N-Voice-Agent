@@ -404,16 +404,17 @@ User-Agent: Asterisk-AI-Voice-Agent/1.0\r
     
     def _build_sdp(self) -> str:
         """Build SDP (Session Description Protocol) for audio."""
-        # Get local IP address
+        # Get local IP address - use configured local_ip or detect it
         local_ip = self.config.local_ip
         if local_ip == "0.0.0.0":
-            # Get actual local IP
+            # If not configured, try to get the public IP by connecting to the SIP host
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
                 s.connect((self.config.host, 80))
                 local_ip = s.getsockname()[0]
             except:
-                local_ip = "127.0.0.1"
+                # Fallback to the SIP host itself (public IP)
+                local_ip = self.config.host
             finally:
                 s.close()
         
