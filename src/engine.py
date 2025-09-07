@@ -144,9 +144,13 @@ class VoiceAgentEngine:
             # Answer the call and start conversation loop
             await self._answer_call(call_id, call_info)
         elif call_info.state == "connected":
-            logger.info(f"Call {call_id} is connected with {call_info.from_user}")
-            # Process audio through conversation loop
-            await self._process_call_audio(call_id, call_info)
+            # Only process if conversation loop hasn't been started yet
+            if not hasattr(call_info, 'conversation_started') or not call_info.conversation_started:
+                logger.info(f"Call {call_id} is connected with {call_info.from_user} - starting conversation")
+                call_info.conversation_started = True
+                # Process audio through conversation loop
+                await self._process_call_audio(call_id, call_info)
+            # Don't log every 10ms for connected calls
         elif call_info.state == "ended":
             logger.info(f"Call {call_id} has ended - removing from active calls")
             # Clean up conversation loop and remove from active calls

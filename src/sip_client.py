@@ -671,8 +671,10 @@ Content-Length: 0\r
                     # Add a small delay to allow engine to process the connected state
                     await asyncio.sleep(0.1)
                     
-                    # Start RTP audio handling
-                    asyncio.create_task(self._handle_rtp_audio(call_id))
+                    # Start RTP audio handling only if not already started
+                    if not hasattr(self.calls[call_id], 'rtp_started') or not self.calls[call_id].rtp_started:
+                        self.calls[call_id].rtp_started = True
+                        asyncio.create_task(self._handle_rtp_audio(call_id))
                 else:
                     logger.warning(f"ACK received for unknown call {call_id}")
         except Exception as e:
