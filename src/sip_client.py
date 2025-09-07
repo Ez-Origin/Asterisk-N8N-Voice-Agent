@@ -1136,9 +1136,15 @@ Content-Length: 0\r
         # This is critical - we must preserve the original Call-ID, From/To tags, etc.
         
         # Get the original headers from the call_info (stored when we received the INVITE)
-        original_from = call_info.original_from_header  # e.g., "HAIDER JARRAL" <sip:13164619284@207.38.71.85>;tag=3f16fc57-b243-43a3-8f35-2561f164d0db
-        original_to = call_info.original_to_header      # e.g., <sip:3000@172.17.0.3>
-        original_call_id = call_info.original_call_id   # e.g., 98c1b62c-35f9-4877-8c67-b7f6b3cdf716
+        # Clean up any line breaks that might be in the headers
+        original_from = call_info.original_from_header.replace('\r', '').replace('\n', '').strip()
+        original_to = call_info.original_to_header.replace('\r', '').replace('\n', '').strip()
+        original_call_id = call_info.original_call_id
+        
+        # Debug: Log the cleaned headers
+        logger.info(f"REINVITE headers - From: {original_from}")
+        logger.info(f"REINVITE headers - To: {original_to}")
+        logger.info(f"REINVITE headers - Call-ID: {original_call_id}")
         
         # Use public IP for Via and Contact headers
         public_ip = "207.38.71.85"
