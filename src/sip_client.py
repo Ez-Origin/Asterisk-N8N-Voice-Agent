@@ -104,7 +104,7 @@ class SIPClient:
         
         # RTP configuration
         self.rtp_socket: Optional[socket.socket] = None
-        self.rtp_port = self._find_available_rtp_port()
+        self.rtp_port = self.config.rtp_port_range[0]  # Use the configured RTP port
         
         logger.info(f"SIP Client initialized for {config.extension}@{config.host}:{config.port}")
     
@@ -140,7 +140,7 @@ class SIPClient:
             
             # Create UDP socket for RTP audio
             self.rtp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.rtp_socket.bind((self.config.local_ip, self.rtp_port))
+            self.rtp_socket.bind(('0.0.0.0', self.rtp_port))
             
             self.running = True
             logger.info(f"SIP client started on {self.config.local_ip}:{self.config.local_port}")
@@ -406,36 +406,21 @@ User-Agent: Asterisk-AI-Voice-Agent/1.0\r
     
     def _build_sdp(self) -> str:
         """Build SDP (Session Description Protocol) for audio."""
-        # Get local IP address - use configured local_ip or detect it
+        # Use the configured local_ip (should be the public IP)
         local_ip = self.config.local_ip
         if local_ip == "0.0.0.0":
-            # If not configured, try to get the public IP by connecting to the SIP host
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                s.connect((self.config.host, 80))
-                local_ip = s.getsockname()[0]
-            except:
-                # Fallback to the SIP host itself (public IP)
-                local_ip = self.config.host
-            finally:
-                s.close()
+            # Fallback to the SIP host itself (public IP)
+            local_ip = self.config.host
         
-        # Build codec list
-        codec_list = []
-        for codec in self.config.codecs:
-            if codec == "ulaw":
-                codec_list.append("0 PCMU/8000")
-            elif codec == "alaw":
-                codec_list.append("8 PCMA/8000")
-            elif codec == "g722":
-                codec_list.append("9 G722/8000")
+        # Use the configured RTP port range start
+        rtp_port = self.config.rtp_port_range[0]
         
         sdp = f"""v=0\r
 o=asterisk-ai-voice-agent 1234567890 1234567890 IN IP4 {local_ip}\r
 s=Asterisk AI Voice Agent\r
 c=IN IP4 {local_ip}\r
 t=0 0\r
-m=audio {self.rtp_port} RTP/AVP 0 8 9\r
+m=audio {rtp_port} RTP/AVP 0 8 9\r
 a=rtpmap:0 PCMU/8000\r
 a=rtpmap:8 PCMA/8000\r
 a=rtpmap:9 G722/8000\r
@@ -671,13 +656,10 @@ Content-Length: 0\r
                     self.calls[call_id].state = "connected"
                     logger.info(f"Call {call_id} established - ACK received")
                     
-                    # Add a small delay to allow engine to process the connected state
-                    await asyncio.sleep(0.1)
-                    
-                    # Start RTP audio handling only if not already started
-                    if not hasattr(self.calls[call_id], 'rtp_started') or not self.calls[call_id].rtp_started:
+                    # Mark RTP as started to prevent multiple handlers
+                    if not hasattr(self.calls[call_id], 'rtp_started'):
                         self.calls[call_id].rtp_started = True
-                        asyncio.create_task(self._handle_rtp_audio(call_id))
+                        logger.info(f"RTP handling marked as started for call {call_id}")
                 else:
                     logger.warning(f"ACK received for unknown call {call_id}")
         except Exception as e:
@@ -877,21 +859,30 @@ Content-Length: 0\r
                 return
             
             call_info = self.calls[call_id]
+            
+            # Check if RTP is already started for this call
+            if hasattr(call_info, 'rtp_started') and call_info.rtp_started:
+                logger.info(f"RTP already started for call {call_id}, skipping")
+                return
+            
+            # Mark RTP as started
+            call_info.rtp_started = True
             logger.info(f"Starting RTP audio handling for call {call_id}")
             
-            # Create RTP socket for this call
-            rtp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            rtp_socket.bind(('0.0.0.0', 0))  # Bind to any available port
+            # Use the main RTP socket
+            if not self.rtp_socket:
+                logger.error(f"No RTP socket available for call {call_id}")
+                return
             
             try:
                 # Send initial greeting message
-                await self._play_ai_greeting(call_id, call_info, rtp_socket)
+                await self._play_ai_greeting(call_id, call_info, self.rtp_socket)
                 
                 # Start conversation loop integration
-                await self._start_conversation_loop(call_id, call_info, rtp_socket)
+                await self._start_conversation_loop(call_id, call_info, self.rtp_socket)
                 
-            finally:
-                rtp_socket.close()
+            except Exception as e:
+                logger.error(f"Error in RTP audio handling for call {call_id}: {e}")
             
             logger.info(f"RTP audio handling ended for call {call_id}")
             
