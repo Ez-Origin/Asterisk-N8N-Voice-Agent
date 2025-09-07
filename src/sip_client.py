@@ -594,6 +594,9 @@ Content-Length: 0\r
             elif "ACK" in message and "SIP/2.0" in message:
                 # Handle ACK message (call established)
                 await self._handle_ack_message(message, addr)
+            elif "200 OK" in message and "SIP/2.0" in message:
+                # Handle 200 OK response (call established)
+                await self._handle_200_ok_response(message, addr)
             else:
                 logger.debug(f"Unhandled SIP message: {message[:100]}...")
                 
@@ -674,6 +677,35 @@ Content-Length: 0\r
         except Exception as e:
             logger.error(f"Error handling incoming call: {e}")
     
+    async def _handle_200_ok_response(self, message: str, addr: tuple):
+        """Handle 200 OK response (call established)."""
+        try:
+            # Extract call ID
+            call_id_match = re.search(r'Call-ID: ([^\r\n]+)', message)
+            if not call_id_match:
+                logger.error("Could not extract Call-ID from 200 OK response")
+                return
+            
+            call_id = call_id_match.group(1).strip()
+            
+            if call_id in self.calls:
+                call_info = self.calls[call_id]
+                call_info.state = "connected"
+                logger.info(f"Call {call_id} established - 200 OK received")
+                
+                # Send ACK back to Asterisk
+                await self._send_ack_message(call_id, call_info)
+                
+                # Start RTP audio handling
+                if not hasattr(call_info, 'rtp_started'):
+                    call_info.rtp_started = True
+                    asyncio.create_task(self._handle_rtp_audio(call_id))
+            else:
+                logger.warning(f"Received 200 OK for unknown call {call_id}")
+                
+        except Exception as e:
+            logger.error(f"Error handling 200 OK response: {e}")
+    
     async def _handle_ack_message(self, message: str, addr: tuple):
         """Handle ACK message (call established)."""
         try:
@@ -696,6 +728,31 @@ Content-Length: 0\r
                     logger.warning(f"ACK received for unknown call {call_id}")
         except Exception as e:
             logger.error(f"Error handling ACK message: {e}")
+    
+    async def _send_ack_message(self, call_id: str, call_info: CallInfo):
+        """Send ACK message to Asterisk."""
+        try:
+            # Build ACK message
+            via = f"Via: SIP/2.0/UDP {self.config.local_ip}:{self.config.local_port};branch={self._generate_branch()}"
+            from_header = f"From: <sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
+            to_header = f"To: <sip:{self.config.extension}@{self.config.host}>"
+            
+            ack_message = f"""ACK sip:{self.config.extension}@{self.config.host} SIP/2.0\r
+Via: {via}\r
+From: {from_header}\r
+To: {to_header}\r
+Call-ID: {call_id}\r
+CSeq: {self._sequence_number} ACK\r
+Max-Forwards: 70\r
+User-Agent: Asterisk-AI-Voice-Agent/1.0\r
+\r
+"""
+            
+            await self._send_message(ack_message)
+            logger.info(f"Sent ACK for call {call_id}")
+            
+        except Exception as e:
+            logger.error(f"Error sending ACK for call {call_id}: {e}")
     
     async def _handle_call_termination(self, message: str, addr: tuple):
         """Handle call termination."""
