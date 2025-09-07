@@ -79,6 +79,11 @@ class CallInfo:
     codec: str
     start_time: float
     state: str = "ringing"  # ringing, connected, ended
+    # Original SIP headers for REINVITE
+    original_from_header: str = ""
+    original_to_header: str = ""
+    original_call_id: str = ""
+    original_cseq: int = 0
 
 
 class SIPClient:
@@ -603,15 +608,25 @@ Content-Length: 0\r
             # Extract call information
             call_id_match = re.search(r'Call-ID: ([^\r\n]+)', message)
             from_match = re.search(r'From: (?:[^<]*<)?sip:([^@]+)@', message)
+            to_match = re.search(r'To: ([^\r\n]+)', message)
+            cseq_match = re.search(r'CSeq: (\d+)', message)
             
-            if not call_id_match or not from_match:
+            if not call_id_match or not from_match or not to_match or not cseq_match:
                 logger.error("Could not extract call information from INVITE")
                 logger.error(f"Call-ID match: {call_id_match}")
                 logger.error(f"From match: {from_match}")
+                logger.error(f"To match: {to_match}")
+                logger.error(f"CSeq match: {cseq_match}")
                 return
             
             call_id = call_id_match.group(1).strip()
             from_user = from_match.group(1)
+            
+            # Extract original headers for REINVITE
+            original_from_header = from_match.group(0).replace("From: ", "").strip()
+            original_to_header = to_match.group(1).strip()
+            original_call_id = call_id
+            original_cseq = int(cseq_match.group(1))
             
             # Parse SDP to extract remote RTP information
             rtp_info = self._parse_sdp(message)
@@ -628,7 +643,12 @@ Content-Length: 0\r
                 remote_rtp_port=remote_rtp_port,
                 remote_ip=remote_ip,
                 codec=codec,
-                start_time=time.time()
+                start_time=time.time(),
+                # Store original headers for REINVITE
+                original_from_header=original_from_header,
+                original_to_header=original_to_header,
+                original_call_id=original_call_id,
+                original_cseq=original_cseq
             )
             
             # Set initial state to ringing
@@ -1110,24 +1130,32 @@ Content-Length: 0\r
             logger.error(f"Error sending REINVITE for call {call_id}: {e}")
     
     def _build_reinvite_message(self, call_id: str, call_info: CallInfo) -> str:
-        """Build REINVITE message for direct media."""
-        # Use public IP in all headers for direct media
-        public_ip = "207.38.71.85"
+        """Build REINVITE message for direct media using original call headers."""
+        # Use the ORIGINAL call headers from the INVITE that Asterisk sent to us
+        # This is critical - we must preserve the original Call-ID, From/To tags, etc.
         
+        # Get the original headers from the call_info (stored when we received the INVITE)
+        original_from = call_info.original_from_header  # e.g., "HAIDER JARRAL" <sip:13164619284@207.38.71.85>;tag=3f16fc57-b243-43a3-8f35-2561f164d0db
+        original_to = call_info.original_to_header      # e.g., <sip:3000@172.17.0.3>
+        original_call_id = call_info.original_call_id   # e.g., 98c1b62c-35f9-4877-8c67-b7f6b3cdf716
+        
+        # Use public IP for Via and Contact headers
+        public_ip = "207.38.71.85"
         via = f"SIP/2.0/UDP {public_ip}:{self.config.local_port};branch={self._generate_branch()}"
-        from_header = f"<sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
-        to_header = f"<sip:{call_info.from_user}@{self.config.host}>;tag={call_info.from_user}"
         contact = f"<sip:{self.config.extension}@{public_ip}:{self.config.local_port}>"
         
         # Build SDP with public IP for direct media
         sdp = self._build_sdp()
         
+        # Use original CSeq + 1 for REINVITE (original was 1, so this should be 2)
+        cseq = call_info.original_cseq + 1
+        
         message = f"""INVITE sip:{call_info.from_user}@{self.config.host} SIP/2.0\r
 Via: {via}\r
-From: {from_header}\r
-To: {to_header}\r
-Call-ID: {call_id}\r
-CSeq: {self._sequence_number + 1} INVITE\r
+From: {original_from}\r
+To: {original_to}\r
+Call-ID: {original_call_id}\r
+CSeq: {cseq} INVITE\r
 Contact: {contact}\r
 Content-Type: application/sdp\r
 Content-Length: {len(sdp)}\r
