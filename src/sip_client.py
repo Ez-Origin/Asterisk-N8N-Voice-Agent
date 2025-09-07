@@ -1080,7 +1080,7 @@ Content-Length: 0\r
                     openai_model=ai_config.model,
                     voice_type=ai_config.voice,
                     system_prompt="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
-                    max_context_length=10,
+                    max_conversation_turns=10,
                     silence_timeout=3.0,
                     max_silence_duration=10.0
                 )
@@ -1094,7 +1094,7 @@ Content-Length: 0\r
                     openai_model="gpt-4o",
                     voice_type="alloy",
                     system_prompt="You are a helpful AI assistant for Jugaar LLC. Answer calls professionally and helpfully.",
-                    max_context_length=10,
+                    max_conversation_turns=10,
                     silence_timeout=3.0,
                     max_silence_duration=10.0
                 )
