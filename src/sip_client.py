@@ -903,11 +903,16 @@ Content-Length: 0\r
                 # Wait a moment for the audio path to be fully established
                 await asyncio.sleep(0.5)
                 
-                # Send REINVITE to establish direct media with caller
-                await self._send_reinvite_for_direct_media(call_id, call_info)
-                
-                # Send initial greeting message
+                # Send initial greeting message first
                 await self._play_ai_greeting(call_id, call_info, self.rtp_socket)
+                
+                # Wait a bit longer after greeting before attempting REINVITE
+                # This ensures the call is fully established and reduces conflicts
+                await asyncio.sleep(2.0)
+                
+                # Send REINVITE to establish direct media with caller
+                # Only if no other calls are active to prevent 491 Request Pending
+                await self._send_reinvite_for_direct_media(call_id, call_info)
                 
                 # Start conversation loop integration
                 await self._start_conversation_loop(call_id, call_info, self.rtp_socket)
@@ -1120,6 +1125,23 @@ Content-Length: 0\r
             if hasattr(call_info, 'reinvite_sent') and call_info.reinvite_sent:
                 logger.info(f"REINVITE already sent for call {call_id}, skipping")
                 return
+            
+            # Check if there are other active calls that might conflict
+            active_calls = [cid for cid, info in self.calls.items() 
+                          if cid != call_id and info.state in ["ringing", "connected"]]
+            
+            if active_calls:
+                logger.info(f"Other active calls detected: {active_calls}, delaying REINVITE for {call_id}")
+                # Wait a bit longer and try again
+                await asyncio.sleep(3.0)
+                
+                # Check again after delay
+                active_calls = [cid for cid, info in self.calls.items() 
+                              if cid != call_id and info.state in ["ringing", "connected"]]
+                
+                if active_calls:
+                    logger.warning(f"Still other active calls: {active_calls}, skipping REINVITE for {call_id}")
+                    return
                 
             logger.info(f"Sending REINVITE for direct media on call {call_id}")
             
@@ -1131,11 +1153,17 @@ Content-Length: 0\r
             await self._send_message(reinvite_msg)
             
             # Wait for 200 OK response
-            response = await self._wait_for_response(timeout=5.0)
+            response = await self._wait_for_response(timeout=10.0)
             if response and "200 OK" in response:
                 logger.info(f"REINVITE successful for call {call_id} - direct media established")
+                # Parse the SDP response to get the new RTP endpoint
+                rtp_info = self._parse_sdp(response)
+                if rtp_info.get('ip'):
+                    logger.info(f"Direct media RTP endpoint: {rtp_info['ip']}:{rtp_info.get('port', 'unknown')}")
+            elif response and "491" in response:
+                logger.warning(f"REINVITE rejected with 491 Request Pending for call {call_id} - continuing with proxy mode")
             else:
-                logger.warning(f"REINVITE failed for call {call_id}, continuing with proxy mode")
+                logger.warning(f"REINVITE failed for call {call_id} (timeout or error), continuing with proxy mode")
                 
         except Exception as e:
             logger.error(f"Error sending REINVITE for call {call_id}: {e}")
