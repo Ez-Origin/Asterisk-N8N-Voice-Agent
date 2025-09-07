@@ -1159,19 +1159,7 @@ Content-Length: 0\r
         
         # REINVITE should be sent to the same destination as the original INVITE
         # The original INVITE came from Asterisk at 207.38.71.85:5060
-        message = f"""INVITE sip:{self.config.extension}@207.38.71.85:5060 SIP/2.0\r
-Via: {via}\r
-From: {original_from}\r
-To: {original_to}\r
-Call-ID: {original_call_id}\r
-CSeq: {cseq} INVITE\r
-Contact: {contact}\r
-Content-Type: application/sdp\r
-Content-Length: {len(sdp)}\r
-Max-Forwards: 70\r
-User-Agent: Asterisk-AI-Voice-Agent/1.0\r
-\r
-{sdp}"""
+        message = f"""INVITE sip:{self.config.extension}@207.38.71.85:5060 SIP/2.0\r\nVia: {via}\r\nFrom: {original_from}\r\nTo: {original_to}\r\nCall-ID: {original_call_id}\r\nCSeq: {cseq} INVITE\r\nContact: {contact}\r\nContent-Type: application/sdp\r\nContent-Length: {len(sdp)}\r\nMax-Forwards: 70\r\nUser-Agent: Asterisk-AI-Voice-Agent/1.0\r\n\r\n{sdp}"""
         return message
     
     def _preprocess_audio(self, samples):
