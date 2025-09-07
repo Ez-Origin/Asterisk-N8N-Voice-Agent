@@ -617,6 +617,8 @@ Content-Length: 0\r
                 start_time=time.time()
             )
             
+            # Set initial state to ringing
+            call_info.state = "ringing"
             self.calls[call_id] = call_info
             
             # Send 180 Ringing
@@ -627,10 +629,13 @@ Content-Length: 0\r
             ok_msg = self._build_ok_response(call_id, message)
             await self._send_message(ok_msg)
             
+            # Update call state to connected after sending 200 OK
+            call_info.state = "connected"
+            
             # Start RTP audio handling
             asyncio.create_task(self._handle_rtp_audio(call_id))
             
-            logger.info(f"Incoming call {call_id} from {from_user}")
+            logger.info(f"Incoming call {call_id} from {from_user} - state: {call_info.state}")
             
         except Exception as e:
             logger.error(f"Error handling incoming call: {e}")

@@ -127,8 +127,12 @@ class VoiceAgentEngine:
     
     async def _process_active_calls(self):
         """Process all active calls."""
+        if self.active_calls:
+            logger.info(f"Processing {len(self.active_calls)} active calls: {list(self.active_calls.keys())}")
+        
         for call_id, call_info in self.active_calls.items():
             try:
+                logger.info(f"Processing call {call_id} with state: {call_info.state}")
                 await self._handle_call(call_id, call_info)
             except Exception as e:
                 logger.error(f"Error processing call {call_id}: {e}")
