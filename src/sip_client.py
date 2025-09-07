@@ -608,7 +608,7 @@ Content-Length: 0\r
             
             # Extract call information
             call_id_match = re.search(r'Call-ID: ([^\r\n]+)', message)
-            from_match = re.search(r'From: (?:[^<]*<)?sip:([^@]+)@', message)
+            from_match = re.search(r'From: ([^\r\n]+)', message)
             to_match = re.search(r'To: ([^\r\n]+)', message)
             cseq_match = re.search(r'CSeq: (\d+)', message)
             
@@ -621,7 +621,9 @@ Content-Length: 0\r
                 return
             
             call_id = call_id_match.group(1).strip()
-            from_user = from_match.group(1)
+            # Extract from_user from the From header
+            from_user_match = re.search(r'sip:([^@]+)@', from_match.group(1))
+            from_user = from_user_match.group(1) if from_user_match else "unknown"
             
             # Extract original headers for REINVITE
             original_from_header = from_match.group(0).replace("From: ", "").strip()
