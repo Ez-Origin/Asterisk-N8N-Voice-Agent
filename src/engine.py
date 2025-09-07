@@ -148,9 +148,12 @@ class VoiceAgentEngine:
             # Process audio through conversation loop
             await self._process_call_audio(call_id, call_info)
         elif call_info.state == "ended":
-            logger.info(f"Call {call_id} has ended")
-            # Clean up conversation loop
+            logger.info(f"Call {call_id} has ended - removing from active calls")
+            # Clean up conversation loop and remove from active calls
             await self._cleanup_call(call_id)
+            # Remove from active calls to prevent infinite processing
+            if call_id in self.active_calls:
+                del self.active_calls[call_id]
     
     async def _answer_call(self, call_id: str, call_info: CallInfo):
         """Answer an incoming call and start conversation loop."""
