@@ -435,10 +435,16 @@ a=sendrecv\r
         """Parse SDP from SIP response to extract RTP information."""
         rtp_info = {}
         
-        # Extract IP address
+        # Extract IP address from SDP
         ip_match = re.search(r'c=IN IP4 (\d+\.\d+\.\d+\.\d+)', response)
         if ip_match:
-            rtp_info['ip'] = ip_match.group(1)
+            sdp_ip = ip_match.group(1)
+            # If SDP shows Docker internal IP, use the actual Asterisk server IP instead
+            if sdp_ip.startswith('172.17.0.'):
+                rtp_info['ip'] = '207.38.71.85'  # Use the actual server IP
+                logger.info(f"SDP shows Docker IP {sdp_ip}, using server IP 207.38.71.85 for RTP")
+            else:
+                rtp_info['ip'] = sdp_ip
         
         # Extract RTP port
         port_match = re.search(r'm=audio (\d+) RTP/AVP', response)
