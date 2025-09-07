@@ -969,6 +969,10 @@ Content-Length: 0\r
     async def _send_rtp_audio(self, call_id: str, call_info: CallInfo, rtp_socket: socket.socket, audio_data: bytes):
         """Send audio data over RTP."""
         try:
+            if not call_info.remote_rtp_ip or not call_info.remote_rtp_port:
+                logger.warning(f"No remote RTP endpoint for call {call_id}")
+                return
+            
             # RTP header fields
             version = 2
             padding = 0
@@ -982,6 +986,9 @@ Content-Length: 0\r
             
             # Send audio in 20ms chunks (160 bytes at 8kHz)
             chunk_size = 160
+            packets_sent = 0
+            max_debug_packets = 10
+            
             for i in range(0, len(audio_data), chunk_size):
                 if call_id not in self.calls or self.calls[call_id].state == "ended":
                     break
@@ -1000,13 +1007,23 @@ Content-Length: 0\r
                 rtp_packet = rtp_header + chunk
                 
                 # Send to remote RTP endpoint
-                if call_info.remote_rtp_port > 0:
-                    rtp_socket.sendto(rtp_packet, (call_info.remote_ip, call_info.remote_rtp_port))
+                rtp_socket.sendto(rtp_packet, (call_info.remote_rtp_ip, call_info.remote_rtp_port))
                 
+                # Debug logging for first few packets
+                if packets_sent < max_debug_packets:
+                    logger.info(f"RTP DEBUG - Call {call_id}: Sent packet {packets_sent + 1}")
+                    logger.info(f"  - To: {call_info.remote_rtp_ip}:{call_info.remote_rtp_port}")
+                    logger.info(f"  - Size: {len(rtp_packet)} bytes (header: {len(rtp_header)}, audio: {len(chunk)})")
+                    logger.info(f"  - Seq: {sequence_number}, TS: {timestamp}, SSRC: {ssrc}")
+                    logger.info(f"  - Audio data (first 10 bytes): {chunk[:10].hex()}")
+                
+                packets_sent += 1
                 sequence_number += 1
                 timestamp += 160  # 20ms at 8kHz
                 
                 await asyncio.sleep(0.02)  # 20ms intervals
+            
+            logger.info(f"Sent {packets_sent} RTP packets for call {call_id}")
                 
         except Exception as e:
             logger.error(f"Error sending RTP audio for call {call_id}: {e}")
@@ -1139,12 +1156,34 @@ Content-Length: 0\r
             
             # Create a buffer for incoming audio
             audio_buffer = bytearray()
+            packet_count = 0
+            max_debug_packets = 10
             
             # Start receiving audio from the caller
             while call_id in self.calls and self.calls[call_id].state != "ended" and self.running:
                 try:
                     # Receive RTP packet
                     data, addr = rtp_socket.recvfrom(1500)
+                    
+                    # Debug first few received packets
+                    if packet_count < max_debug_packets:
+                        logger.info(f"RTP DEBUG - Call {call_id}: Received packet {packet_count + 1}")
+                        logger.info(f"  - From: {addr}")
+                        logger.info(f"  - Size: {len(data)} bytes")
+                        logger.info(f"  - Data (first 20 bytes): {data[:20].hex()}")
+                        
+                        # Parse RTP header
+                        if len(data) >= 12:
+                            rtp_header = data[:12]
+                            version = (rtp_header[0] >> 6) & 0x3
+                            payload_type = rtp_header[1] & 0x7F
+                            sequence_number = int.from_bytes(rtp_header[2:4], 'big')
+                            timestamp = int.from_bytes(rtp_header[4:8], 'big')
+                            ssrc = int.from_bytes(rtp_header[8:12], 'big')
+                            
+                            logger.info(f"  - RTP Header: V={version}, PT={payload_type}, Seq={sequence_number}, TS={timestamp}, SSRC={ssrc}")
+                    
+                    packet_count += 1
                     
                     if len(data) > 12:  # RTP header is 12 bytes
                         # Extract audio payload (skip RTP header)
