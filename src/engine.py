@@ -110,9 +110,13 @@ class VoiceAgentEngine:
         
         try:
             while self.running:
-                # Update active calls
+                # Update active calls - only add new calls, don't replace entire dict
                 if self.sip_client:
-                    self.active_calls = self.sip_client.get_all_calls()
+                    current_calls = self.sip_client.get_all_calls()
+                    # Add new calls that aren't already in active_calls
+                    for call_id, call_info in current_calls.items():
+                        if call_id not in self.active_calls:
+                            self.active_calls[call_id] = call_info
                 
                 # Process active calls
                 await self._process_active_calls()
