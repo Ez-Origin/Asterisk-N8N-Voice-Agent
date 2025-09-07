@@ -601,9 +601,9 @@ Content-Length: 0\r
             # Debug: Log the full INVITE message
             logger.info(f"Full INVITE message: {message}")
             
-        # Extract call information
-        call_id_match = re.search(r'Call-ID: ([^\r\n]+)', message)
-        from_match = re.search(r'From: (?:[^<]*<)?sip:([^@]+)@', message)
+            # Extract call information
+            call_id_match = re.search(r'Call-ID: ([^\r\n]+)', message)
+            from_match = re.search(r'From: (?:[^<]*<)?sip:([^@]+)@', message)
             
             if not call_id_match or not from_match:
                 logger.error("Could not extract call information from INVITE")
