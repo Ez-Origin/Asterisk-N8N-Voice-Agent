@@ -131,27 +131,23 @@ class SIPClient:
     async def start(self) -> bool:
         """Start the SIP client and register with Asterisk."""
         try:
-            # Determine the IP to bind to for direct media
-            bind_ip = self.config.local_ip
-            if bind_ip == "0.0.0.0":
-                # For host networking with direct media, use the public IP directly
-                bind_ip = "207.38.71.85"
+            # Hybrid approach: SIP on container IP, but advertise public IP in SDP for direct media
+            sip_bind_ip = self.config.local_ip  # Use container IP for SIP registration
             
-            # Create UDP socket for SIP signaling
+            # Create UDP socket for SIP signaling (container IP for registration)
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            logger.info(f"Attempting to bind SIP to {bind_ip}:{self.config.local_port}")
-            self.socket.bind((bind_ip, self.config.local_port))
+            logger.info(f"Attempting to bind SIP to {sip_bind_ip}:{self.config.local_port}")
+            self.socket.bind((sip_bind_ip, self.config.local_port))
             self.socket.settimeout(1.0)  # 1 second timeout for non-blocking operation
-            logger.info(f"Successfully bound SIP to {bind_ip}:{self.config.local_port}")
+            logger.info(f"Successfully bound SIP to {sip_bind_ip}:{self.config.local_port}")
             
-            # Create UDP socket for RTP audio - bind to public IP for direct media
+            # Create UDP socket for RTP audio - bind inside container, Docker maps to public IP
             self.rtp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            rtp_bind_ip = bind_ip  # Use same IP as SIP for direct media
-            self.rtp_socket.bind((rtp_bind_ip, self.rtp_port))
+            self.rtp_socket.bind(('0.0.0.0', self.rtp_port))  # Docker maps this to public IP
             
             self.running = True
-            logger.info(f"SIP client started on {bind_ip}:{self.config.local_port}")
-            logger.info(f"RTP socket bound to {rtp_bind_ip}:{self.rtp_port} for direct media")
+            logger.info(f"SIP client started on {sip_bind_ip}:{self.config.local_port}")
+            logger.info(f"RTP socket bound to 0.0.0.0:{self.rtp_port} (Docker maps to 207.38.71.85:{self.rtp_port})")
             
             # Start background tasks
             asyncio.create_task(self._message_loop())
@@ -307,12 +303,12 @@ class SIPClient:
     
     def _build_register_message(self) -> str:
         """Build a SIP REGISTER message."""
-        # Use public IP for direct media registration
-        public_ip = self.config.local_ip if self.config.local_ip != "0.0.0.0" else "207.38.71.85"
-        via = f"SIP/2.0/UDP {public_ip}:{self.config.local_port};branch={self._branch}"
+        # Use container IP for SIP registration, but advertise public IP for RTP in SDP
+        sip_ip = self.config.local_ip  # Container IP for SIP
+        via = f"SIP/2.0/UDP {sip_ip}:{self.config.local_port};branch={self._branch}"
         from_header = f"<sip:{self.config.extension}@{self.config.host}>;tag={self._tag}"
         to_header = f"<sip:{self.config.extension}@{self.config.host}>"
-        contact = f"<sip:{self.config.extension}@{public_ip}:{self.config.local_port}>"
+        contact = f"<sip:{self.config.extension}@{sip_ip}:{self.config.local_port}>"
         
         message = f"""REGISTER sip:{self.config.host} SIP/2.0\r
 Via: {via}\r
@@ -413,12 +409,9 @@ User-Agent: Asterisk-AI-Voice-Agent/1.0\r
     
     def _build_sdp(self) -> str:
         """Build SDP (Session Description Protocol) for audio."""
-        # For direct media with host networking, advertise the public IP
-        # so callers can send RTP directly to the AI agent
-        local_ip = self.config.local_ip
-        if local_ip == "0.0.0.0":
-            # Use the public IP of the server for direct media
-            local_ip = "207.38.71.85"
+        # Always use public IP in SDP for direct media, regardless of SIP binding
+        # This enables direct RTP between caller and AI agent
+        local_ip = "207.38.71.85"  # Always use public IP for RTP media
         
         # Use the configured RTP port range start (bound to public IP)
         rtp_port = self.config.rtp_port_range[0]
