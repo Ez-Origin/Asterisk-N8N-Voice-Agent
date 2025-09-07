@@ -1116,7 +1116,15 @@ Content-Length: 0\r
     async def _send_reinvite_for_direct_media(self, call_id: str, call_info: CallInfo):
         """Send REINVITE to establish direct media with caller."""
         try:
+            # Check if we already sent a REINVITE for this call
+            if hasattr(call_info, 'reinvite_sent') and call_info.reinvite_sent:
+                logger.info(f"REINVITE already sent for call {call_id}, skipping")
+                return
+                
             logger.info(f"Sending REINVITE for direct media on call {call_id}")
+            
+            # Mark that we've sent a REINVITE for this call
+            call_info.reinvite_sent = True
             
             # Build REINVITE message with SDP advertising public IP
             reinvite_msg = self._build_reinvite_message(call_id, call_info)
