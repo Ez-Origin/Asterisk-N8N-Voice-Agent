@@ -597,12 +597,17 @@ Content-Length: 0\r
     async def _handle_incoming_call(self, message: str, addr: tuple):
         """Handle an incoming call."""
         try:
+            # Debug: Log the full INVITE message
+            logger.info(f"Full INVITE message: {message}")
+            
             # Extract call information
             call_id_match = re.search(r'Call-ID: ([^\r\n]+)', message)
             from_match = re.search(r'From: <sip:([^@]+)@', message)
             
             if not call_id_match or not from_match:
                 logger.error("Could not extract call information from INVITE")
+                logger.error(f"Call-ID match: {call_id_match}")
+                logger.error(f"From match: {from_match}")
                 return
             
             call_id = call_id_match.group(1).strip()
