@@ -25,7 +25,7 @@ setup_media_paths() {
     # Determine sudo
     if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; else SUDO=""; fi
 
-    # Resolve asterisk uid/gid (fall back to 995 which is common on FreePBX)
+    # Resolve asterisk uid/gid (fall back to 996/996 which is common on FreePBX)
     AST_UID=$(id -u asterisk 2>/dev/null || echo 999)
     AST_GID=$(id -g asterisk 2>/dev/null || echo 996)
 
@@ -477,6 +477,7 @@ select_config_template() {
     echo "  [4] Hybrid (Local STT + OpenAI LLM + Deepgram TTS)"
     echo "  [5] Monolithic OpenAI Realtime agent"
     echo "  [6] Monolithic Deepgram Voice Agent"
+    echo "  [7] Google + n8n Pipeline"
     read -p "Enter your choice [1]: " cfg_choice
     # Always start from the canonical pipelines template, then set active/defaults
     CFG_SRC="config/ai-agent.example.yaml"
@@ -488,6 +489,7 @@ select_config_template() {
         4) PROFILE="hybrid"; PIPELINE_CHOICE="hybrid_deepgram_openai" ;;
         5) PROFILE="openai-agent" ;;
         6) PROFILE="deepgram-agent" ;;
+        7) PROFILE="google-n8n"; PIPELINE_CHOICE="google_n8n_pipeline" ;;
         *) PROFILE="example"; PIPELINE_CHOICE="cloud_openai" ;;
     esac
     CFG_DST="config/ai-agent.yaml"
@@ -500,6 +502,27 @@ select_config_template() {
     fi
     cp "$CFG_SRC" "$CFG_DST"
     print_success "Wrote $CFG_DST from $CFG_SRC"
+
+    # Add google_n8n_pipeline if selected
+    if [ "$PROFILE" = "google-n8n" ]; then
+        if command -v yq >/dev/null 2>&1; then
+            yq -i '.pipelines.google_n8n_pipeline = {"stt": "google_stt", "llm": "n8n_llm", "tts": "google_tts", "options": {"llm": {"webhook_url": "${N8N_WEBHOOK_URL}"}}}' "$CFG_DST"
+            print_success "Added google_n8n_pipeline to $CFG_DST"
+        else
+            # Fallback using cat append
+            cat >> "$CFG_DST" <<EOF
+
+  google_n8n_pipeline:
+    stt: google_stt
+    llm: n8n_llm
+    tts: google_tts
+    options:
+      llm:
+        webhook_url: "\${N8N_WEBHOOK_URL}" # <-- This will be read from the .env file
+EOF
+            print_warning "Added google_n8n_pipeline via fallback. Please verify formatting in $CFG_DST"
+        fi
+    fi
 
     # Set active_pipeline or default_provider based on selection
     if [ -n "$PIPELINE_CHOICE" ]; then
@@ -607,6 +630,9 @@ print_asterisk_dialplan_snippet() {
             ;;
         deepgram-agent)
             PROVIDER_OVERRIDE="deepgram"
+            ;;
+        google-n8n) # NEW
+            PIPELINE_NAME="google_n8n_pipeline"
             ;;
         *)
             # Example template defaults to cloud_openai pipeline
