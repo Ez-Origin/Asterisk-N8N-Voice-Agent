@@ -26,8 +26,8 @@ setup_media_paths() {
     if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; else SUDO=""; fi
 
     # Resolve asterisk uid/gid (fall back to 995 which is common on FreePBX)
-    AST_UID=$(id -u asterisk 2>/dev/null || echo 995)
-    AST_GID=$(id -g asterisk 2>/dev/null || echo 995)
+    AST_UID=$(id -u asterisk 2>/dev/null || echo 999)
+    AST_GID=$(id -g asterisk 2>/dev/null || echo 996)
 
     # Create host media directories
     $SUDO mkdir -p /mnt/asterisk_media/ai-generated || true
