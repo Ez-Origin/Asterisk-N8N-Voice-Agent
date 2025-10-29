@@ -1466,7 +1466,7 @@ class Engine:
         """Forward inbound AudioSocket audio to the active provider for the bound call."""
         try:
             # DEBUG: Log raw audio data
-            logger.info(f"Received audio data: {audio_bytes.hex()}")
+            # logger.info(f"Received audio data: {audio_bytes.hex()}")
 
             caller_channel_id = self.conn_to_channel.get(conn_id)
             if not caller_channel_id and self.audio_socket_server:
@@ -2294,7 +2294,7 @@ class Engine:
                         return
                     words = len([w for w in aggregated.split() if w])
                     chars = len(aggregated.replace(" ", ""))
-                    threshold_met = words >= 3 or chars >= 12
+                    threshold_met = words >= 1 or chars >= 12
                     if not threshold_met:
                         if force:
                             pending_segments.clear()
@@ -2338,6 +2338,8 @@ class Engine:
                             await maybe_respond(force=True)
                             break
                         normalized = (transcript or "").strip()
+                        if normalized:
+                            logger.info(f"STT Detected Text: '{normalized}'", call_id=call_id)
                         if not normalized:
                             if pending_segments and flush_task is None:
                                 await schedule_flush()
