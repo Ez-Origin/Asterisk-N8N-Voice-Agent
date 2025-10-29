@@ -1,4 +1,4 @@
-# Asterisk AI Voice Agent v3.0
+# Asterisk AI Voice Agent v3.0 with N8N and Google Voice
 
 An open-source AI Voice Agent that integrates with Asterisk/FreePBX using the Asterisk REST Interface (ARI). It features a **production-ready, two-container architecture** with **Hybrid ARI** call control, **SessionStore** state management, ExternalMedia RTP integration for reliable real-time audio capture and file-based TTS playback for robust conversation handling.
 
@@ -36,8 +36,8 @@ Follow these 3 steps to get a working agent.
 
 1) Clone and install
 ```bash
-git clone https://github.com/hkjarral/Asterisk-AI-Voice-Agent.git
-cd Asterisk-AI-Voice-Agent
+git clone https://github.com/Ez-Origin/Asterisk-N8N-Voice-Agent.git
+cd Asterisk-N8N-Voice-Agent
 ./install.sh
 ```
 When prompted, choose your preferred configuration. The installer will:
