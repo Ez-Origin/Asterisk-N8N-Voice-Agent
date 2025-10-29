@@ -2242,7 +2242,7 @@ class Engine:
                             pipeline.llm_options,
                         )
                     except Exception:
-                        logger.debug("LLM generate failed", call_id=call_id, exc_info=True)
+                        logger.error("LLM generate failed", call_id=call_id, exc_info=True)
                         return
                     response_text = (response_text or "").strip()
                     if not response_text:
