@@ -34,8 +34,11 @@ from .config import (
     LocalProviderConfig,
     DeepgramProviderConfig,
     OpenAIRealtimeProviderConfig,
+    GoogleProviderConfig,
 )
 from .pipelines import PipelineOrchestrator, PipelineOrchestratorError, PipelineResolution
+from .pipelines.google import GoogleSTTAdapter, GoogleTTSAdapter
+from .pipelines.n8n import N8nAdapter
 from .logging_config import get_logger, configure_logging
 from .rtp_server import RTPServer
 from .audio.audiosocket_server import AudioSocketServer
@@ -448,6 +451,14 @@ class Engine:
                     provider = OpenAIRealtimeProvider(openai_cfg, self.on_provider_event)
                     self.providers[name] = provider
                     logger.info("Provider 'openai_realtime' loaded successfully.")
+                elif name == "google":
+                    google_config = GoogleProviderConfig(**provider_config_data)
+                    self.pipeline_orchestrator.register_component("google_stt", GoogleSTTAdapter("google_stt", self.config, google_config))
+                    self.pipeline_orchestrator.register_component("google_tts", GoogleTTSAdapter("google_tts", self.config, google_config))
+                    logger.info("Provider 'google' loaded successfully.")
+                elif name == "n8n":
+                    self.pipeline_orchestrator.register_component("n8n_llm", N8nAdapter("n8n_llm", self.config, provider_config_data))
+                    logger.info("Provider 'n8n' loaded successfully.")
                 else:
                     logger.warning(f"Unknown provider type: {name}")
                     continue

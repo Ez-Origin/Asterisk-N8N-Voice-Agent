@@ -262,3 +262,9 @@ providers:
       silence_duration_ms: 200
       threshold: 0.5
       prefix_padding_ms: 200
+  google:
+    enabled: true
+    api_key: "${GOOGLE_API_KEY}"
+  n8n:
+    enabled: true
+    webhook_url: "${N8N_WEBHOOK_URL}"
