@@ -453,11 +453,16 @@ class Engine:
                     logger.info("Provider 'openai_realtime' loaded successfully.")
                 elif name == "google":
                     google_config = GoogleProviderConfig(**provider_config_data)
-                    self.pipeline_orchestrator.register_component("google_stt", GoogleSTTAdapter("google_stt", self.config, google_config))
-                    self.pipeline_orchestrator.register_component("google_tts", GoogleTTSAdapter("google_tts", self.config, google_config))
+                    stt_adapter = GoogleSTTAdapter("google_stt", self.config, google_config)
+                    tts_adapter = GoogleTTSAdapter("google_tts", self.config, google_config)
+                    self.pipeline_orchestrator.register_component("google_stt", stt_adapter)
+                    self.pipeline_orchestrator.register_component("google_tts", tts_adapter)
+                    self.providers[name] = stt_adapter  # Add a representative component
                     logger.info("Provider 'google' loaded successfully.")
                 elif name == "n8n":
-                    self.pipeline_orchestrator.register_component("n8n_llm", N8nAdapter("n8n_llm", self.config, provider_config_data))
+                    n8n_adapter = N8nAdapter("n8n_llm", self.config, provider_config_data)
+                    self.pipeline_orchestrator.register_component("n8n_llm", n8n_adapter)
+                    self.providers[name] = n8n_adapter  # Add a representative component
                     logger.info("Provider 'n8n' loaded successfully.")
                 else:
                     logger.warning(f"Unknown provider type: {name}")
@@ -1460,6 +1465,9 @@ class Engine:
     async def _audiosocket_handle_audio(self, conn_id: str, audio_bytes: bytes) -> None:
         """Forward inbound AudioSocket audio to the active provider for the bound call."""
         try:
+            # DEBUG: Log raw audio data
+            logger.info(f"Received audio data: {audio_bytes.hex()}")
+
             caller_channel_id = self.conn_to_channel.get(conn_id)
             if not caller_channel_id and self.audio_socket_server:
                 # Fallback: resolve via server's UUID registry
