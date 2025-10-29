@@ -98,7 +98,15 @@ pipelines:
           audio_encoding: "MULAW"  # Telephony μ-law output for direct playback
           sample_rate_hz: 8000
 
-active_pipeline: "default"
+  google_n8n_pipeline:
+    stt: google_stt
+    llm: n8n_llm
+    tts: google_tts
+    options:
+      llm:
+        webhook_url: "YOUR_N8N_WEBHOOK_URL" # <-- IMPORTANT: Change this to your n8n webhook URL
+
+active_pipeline: "google_n8n_pipeline"
 
 # Audio transport controls (AudioSocket-first, ExternalMedia as fallback)
 #
