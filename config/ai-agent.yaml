@@ -104,7 +104,7 @@ pipelines:
     tts: google_tts
     options:
       llm:
-        webhook_url: "YOUR_N8N_WEBHOOK_URL" # <-- IMPORTANT: Change this to your n8n webhook URL
+        webhook_url: "${N8N_WEBHOOK_URL}" # <-- This will be read from the .env file
 
 active_pipeline: "google_n8n_pipeline"
 

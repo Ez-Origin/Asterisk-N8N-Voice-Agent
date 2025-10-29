@@ -381,13 +381,16 @@ configure_env() {
 
     # Prefill from existing .env if present
     local ASTERISK_HOST_DEFAULT="" ASTERISK_ARI_USERNAME_DEFAULT="" ASTERISK_ARI_PASSWORD_DEFAULT=""
-    local OPENAI_API_KEY_DEFAULT="" DEEPGRAM_API_KEY_DEFAULT=""
+    local OPENAI_API_KEY_DEFAULT="" DEEPGRAM_API_KEY_DEFAULT="" GOOGLE_API_KEY_DEFAULT="" GOOGLE_APPLICATION_CREDENTIALS_DEFAULT="" N8N_WEBHOOK_URL_DEFAULT=""
     if [ -f .env ]; then
         ASTERISK_HOST_DEFAULT=$(grep -E '^[# ]*ASTERISK_HOST=' .env | tail -n1 | sed -E 's/^[# ]*ASTERISK_HOST=//')
         ASTERISK_ARI_USERNAME_DEFAULT=$(grep -E '^[# ]*ASTERISK_ARI_USERNAME=' .env | tail -n1 | sed -E 's/^[# ]*ASTERISK_ARI_USERNAME=//')
         ASTERISK_ARI_PASSWORD_DEFAULT=$(grep -E '^[# ]*ASTERISK_ARI_PASSWORD=' .env | tail -n1 | sed -E 's/^[# ]*ASTERISK_ARI_PASSWORD=//')
         OPENAI_API_KEY_DEFAULT=$(grep -E '^[# ]*OPENAI_API_KEY=' .env | tail -n1 | sed -E 's/^[# ]*OPENAI_API_KEY=//')
         DEEPGRAM_API_KEY_DEFAULT=$(grep -E '^[# ]*DEEPGRAM_API_KEY=' .env | tail -n1 | sed -E 's/^[# ]*DEEPGRAM_API_KEY=//')
+        GOOGLE_API_KEY_DEFAULT=$(grep -E '^[# ]*GOOGLE_API_KEY=' .env | tail -n1 | sed -E 's/^[# ]*GOOGLE_API_KEY=//')
+        GOOGLE_APPLICATION_CREDENTIALS_DEFAULT=$(grep -E '^[# ]*GOOGLE_APPLICATION_CREDENTIALS=' .env | tail -n1 | sed -E 's/^[# ]*GOOGLE_APPLICATION_CREDENTIALS=//')
+        N8N_WEBHOOK_URL_DEFAULT=$(grep -E '^[# ]*N8N_WEBHOOK_URL=' .env | tail -n1 | sed -E 's/^[# ]*N8N_WEBHOOK_URL=//')
     fi
 
     # Asterisk (blank keeps existing)
@@ -406,6 +409,31 @@ configure_env() {
     # API Keys (optional; blank keeps existing)
     read -p "Enter your OpenAI API Key (leave blank to keep existing): " OPENAI_API_KEY_INPUT
     read -p "Enter your Deepgram API Key (leave blank to keep existing): " DEEPGRAM_API_KEY_INPUT
+
+    # Google Credentials
+    echo "Select Google Cloud authentication method:"
+    echo "  [1] API Key (simple, less secure)"
+    echo "  [2] Service Account JSON file (recommended)"
+    read -p "Enter your choice [2]: " GOOGLE_AUTH_CHOICE
+    if [[ "$GOOGLE_AUTH_CHOICE" == "1" ]]; then
+        read -p "Enter your Google API Key: " GOOGLE_API_KEY_INPUT
+        if [ -n "$GOOGLE_API_KEY_INPUT" ]; then
+            upsert_env GOOGLE_API_KEY "$GOOGLE_API_KEY_INPUT"
+            upsert_env GOOGLE_APPLICATION_CREDENTIALS ""
+        fi
+    else
+        read -p "Enter the absolute path to your Google Service Account JSON file: " GOOGLE_APPLICATION_CREDENTIALS_INPUT
+        if [ -n "$GOOGLE_APPLICATION_CREDENTIALS_INPUT" ]; then
+            upsert_env GOOGLE_APPLICATION_CREDENTIALS "$GOOGLE_APPLICATION_CREDENTIALS_INPUT"
+            upsert_env GOOGLE_API_KEY ""
+        fi
+    fi
+
+    # n8n Webhook URL
+    read -p "Enter your n8n Webhook URL: " N8N_WEBHOOK_URL_INPUT
+    if [ -n "$N8N_WEBHOOK_URL_INPUT" ]; then
+        upsert_env N8N_WEBHOOK_URL "$N8N_WEBHOOK_URL_INPUT"
+    fi
 
     upsert_env ASTERISK_HOST "$ASTERISK_HOST"
     upsert_env ASTERISK_ARI_USERNAME "$ASTERISK_ARI_USERNAME"
