@@ -95,7 +95,12 @@ setup_media_paths() {
     upsert_env GREETING_AUDIO_PATH "/audio/greeting.ulaw"
     print_info "Set GREETING_AUDIO_PATH to /audio/greeting.ulaw in .env"
 
-
+    # Quick verification
+    if [ -d /var/lib/asterisk/sounds/ai-generated ]; then
+        print_success "Media path ready: /var/lib/asterisk/sounds/ai-generated -> /mnt/asterisk_media/ai-generated"
+    else
+        print_warning "Media path symlink missing; please ensure permissions and rerun setup."
+    fi
 }
 
 print_success() {

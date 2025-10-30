@@ -1960,19 +1960,11 @@ class Engine:
             if play_recorded_greeting:
                 greeting_audio_path = os.getenv("GREETING_AUDIO_PATH")
                 logger.info("Greetin audio path ", greeting_audio_path)
-                if greeting_audio_path and os.path.exists(greeting_audio_path):
-                    try:
-                        with open(greeting_audio_path, "rb") as f:
-                            audio_bytes = f.read()
-                        if audio_bytes:
-                            await self.playback_manager.play_audio(call_id, audio_bytes, "pipeline-tts-greeting")
-                            logger.info("Played recorded greeting from file.", call_id=call_id, path=greeting_audio_path)
-                        else:
-                            logger.warning("Recorded greeting file is empty.", call_id=call_id, path=greeting_audio_path)
-                    except Exception as e:
-                        logger.error("Failed to play recorded greeting.", call_id=call_id, path=greeting_audio_path, error=str(e))
+                if greeting_audio_path:
+                    await self.playback_manager.play_audio(call_id, f"sound:{greeting_audio_path.replace('.ulaw', '')}", "pipeline-tts-greeting")
+                    logger.info("Played recorded greeting from file.", call_id=call_id, path=greeting_audio_path)
                 else:
-                    logger.warning("GREETING_AUDIO_PATH is not set or file does not exist.", call_id=call_id)
+                    logger.warning("GREETING_AUDIO_PATH is not set.", call_id=call_id)
             else:
                 # Pipeline-managed initial greeting (optional)
                 greeting = ""

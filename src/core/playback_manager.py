@@ -10,7 +10,7 @@ import asyncio
 import time
 import os
 import inspect
-from typing import Optional, Dict, TYPE_CHECKING
+from typing import Optional, Dict, Union, TYPE_CHECKING
 import structlog
 
 from src.core.session_store import SessionStore
@@ -72,14 +72,14 @@ class PlaybackManager:
         logger.info("PlaybackManager initialized",
                    media_dir=self.media_dir)
     
-    async def play_audio(self, call_id: str, audio_bytes: bytes, 
+    async def play_audio(self, call_id: str, audio: Union[bytes, str], 
                         playback_type: str = "response") -> Optional[str]:
         """
         Play audio with deterministic playback ID and gating.
         
         Args:
             call_id: Canonical call ID
-            audio_bytes: Audio data to play
+            audio: Audio data to play (bytes) or media URI (str)
             playback_type: Type of playback (greeting, response, etc.)
         
         Returns:
@@ -97,11 +97,21 @@ class PlaybackManager:
             # Generate deterministic playback ID
             playback_id = self._generate_playback_id(call_id, playback_type)
             
-            # Create audio file
-            audio_file = await self._create_audio_file(audio_bytes, playback_id)
-            if not audio_file:
-                return None
-            
+            audio_file: Optional[str] = None
+            media_uri: str
+            audio_size = 0
+
+            if isinstance(audio, bytes):
+                # Create audio file from bytes
+                audio_file = await self._create_audio_file(audio, playback_id)
+                if not audio_file:
+                    return None
+                media_uri = f"sound:ai-generated/{os.path.basename(audio_file).replace('.ulaw', '')}"
+                audio_size = len(audio)
+            else:
+                # Use provided media URI
+                media_uri = audio
+
             # Set TTS gating before playing (via coordinator if available)
             gating_success = True
             if self.conversation_coordinator:
@@ -120,7 +130,7 @@ class PlaybackManager:
                 return None
             
             # Play audio via ARI
-            success = await self._play_via_ari(session, audio_file, playback_id)
+            success = await self._play_uri_via_ari(session, media_uri, playback_id)
             if not success:
                 # Cleanup gating token if playback failed
                 if self.conversation_coordinator:
@@ -136,7 +146,7 @@ class PlaybackManager:
                 call_id=call_id,
                 channel_id=session.caller_channel_id,
                 bridge_id=session.bridge_id,
-                media_uri=f"sound:ai-generated/{os.path.basename(audio_file).replace('.ulaw', '')}",
+                media_uri=media_uri,
                 audio_file=audio_file
             )
             
@@ -144,12 +154,13 @@ class PlaybackManager:
             await self.session_store.add_playback(playback_ref)
             
             # Schedule token-aware fallback to ensure gating is cleared even if PlaybackFinished is missed
-            await self._schedule_gating_fallback(call_id, playback_id, len(audio_bytes))
+            if audio_size > 0:
+                await self._schedule_gating_fallback(call_id, playback_id, audio_size)
             
             logger.info("🔊 AUDIO PLAYBACK - Started",
                        call_id=call_id,
                        playback_id=playback_id,
-                       audio_size=len(audio_bytes),
+                       audio_size=audio_size,
                        playback_type=playback_type)
             
             return playback_id
@@ -195,8 +206,9 @@ class PlaybackManager:
                 success = await self.session_store.clear_gating_token(
                     playback_ref.call_id, playback_id)
             
-            # Clean up audio file
-            await self._cleanup_audio_file(playback_ref.audio_file)
+            # Clean up audio file if it was created
+            if playback_ref.audio_file:
+                await self._cleanup_audio_file(playback_ref.audio_file)
             
             logger.info("🔊 PlaybackFinished - Audio playback completed",
                        playback_id=playback_id,
@@ -257,7 +269,7 @@ class PlaybackManager:
                         exc_info=True)
             return None
     
-    async def _play_via_ari(self, session: CallSession, audio_file: str, 
+    async def _play_uri_via_ari(self, session: CallSession, media_uri: str, 
                            playback_id: str) -> bool:
         """Play audio file via ARI bridge."""
         try:
@@ -267,21 +279,18 @@ class PlaybackManager:
                            playback_id=playback_id)
                 return False
             
-            # Create sound URI (remove .ulaw extension - Asterisk adds it)
-            sound_uri = f"sound:ai-generated/{os.path.basename(audio_file).replace('.ulaw', '')}"
-            
             # Play via bridge. Prefer deterministic ID method when available.
             play_basic = getattr(self.ari_client, "play_audio_via_bridge", None)
             play_with_id = getattr(self.ari_client, "play_media_on_bridge_with_id", None)
 
             success = False
-            if play_basic and callable(play_basic):
-                result = play_basic(session.bridge_id, sound_uri)
+            if play_with_id and callable(play_with_id):
+                result = play_with_id(session.bridge_id, media_uri, playback_id)
                 if inspect.isawaitable(result):
                     result = await result
                 success = bool(result)
-            elif play_with_id and callable(play_with_id):
-                result = play_with_id(session.bridge_id, sound_uri, playback_id)
+            elif play_basic and callable(play_basic):
+                result = play_basic(session.bridge_id, media_uri)
                 if inspect.isawaitable(result):
                     result = await result
                 success = bool(result)
@@ -291,12 +300,12 @@ class PlaybackManager:
             if success:
                 logger.info("Bridge playback started",
                            bridge_id=session.bridge_id,
-                           media_uri=sound_uri,
+                           media_uri=media_uri,
                            playback_id=playback_id)
             else:
                 logger.error("Failed to start bridge playback",
                            bridge_id=session.bridge_id,
-                           media_uri=sound_uri,
+                           media_uri=media_uri,
                            playback_id=playback_id)
             return success
             
