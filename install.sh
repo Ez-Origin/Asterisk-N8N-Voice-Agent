@@ -54,7 +54,7 @@ setup_media_paths() {
 
     # Ownership and permissions for fast file IO and Asterisk readability
     $SUDO chown -R "$AST_UID:$AST_GID" /mnt/asterisk_media || true
-    $SUDO chmod 775 /mnt/asterisk_media /mnt/asterisk_media/ai-generated || true
+    $SUDO chmod 777 /mnt/asterisk_media /mnt/asterisk_media/ai-generated || true
 
     # Create/update symlink so sound:ai-generated/... resolves
     if [ -L /var/lib/asterisk/sounds/ai-generated ] || [ -e /var/lib/asterisk/sounds/ai-generated ]; then
