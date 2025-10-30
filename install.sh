@@ -68,7 +68,7 @@ setup_media_paths() {
 
     # --- Greeting Audio Setup ---
     # Prefill from existing .env if present
-    local GREETING_AUDIO_PATH_DEFAULT="/mnt/asterisk_media/ai-generated/greeting.ulaw"
+    local GREETING_AUDIO_PATH_DEFAULT="/var/lib/asterisk/sounds/greeting.ulaw"
     if [ -f .env ]; then
         GREETING_AUDIO_PATH_FROM_ENV=$(grep -E '^[# ]*GREETING_AUDIO_PATH=' .env | tail -n1 | sed -E 's/^[# ]*GREETING_AUDIO_PATH=//')
         if [ -n "$GREETING_AUDIO_PATH_FROM_ENV" ]; then
@@ -325,10 +325,10 @@ autodetect_local_models() {
 
 set_performance_params_for_llm() {
     local llm_path="$1"
-    
+
     # Skip if no LLM detected
     [ -z "$llm_path" ] && return 0
-    
+
     # Determine tier based on model name
     local tier="LIGHT_CPU"
     if echo "$llm_path" | grep -q "tinyllama"; then
@@ -340,9 +340,9 @@ set_performance_params_for_llm() {
     elif echo "$llm_path" | grep -q "llama-2-13b"; then
         tier="HEAVY_GPU"
     fi
-    
+
     print_info "Setting performance parameters for tier: $tier"
-    
+
     # Set tier-appropriate parameters
     case "$tier" in
         LIGHT_CPU)
