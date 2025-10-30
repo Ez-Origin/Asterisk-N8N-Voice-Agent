@@ -5,11 +5,11 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from src.asterisk_connection import AsteriskConnection
-from src.llm import LLM
-from src.sound import Sound
-from src.stt import STT
-from src.tts import TTS
+from .asterisk_connection import AsteriskConnection
+from .llm import LLM
+from .sound import Sound
+from .stt import STT
+from .tts import TTS
 
 # Load environment variables from .env file
 load_dotenv()
