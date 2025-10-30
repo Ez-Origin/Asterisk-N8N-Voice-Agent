@@ -5,11 +5,11 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-from .asterisk_connection import AsteriskConnection
-from .llm import LLM
-from .sound import Sound
-from .stt import STT
-from .tts import TTS
+from src.asterisk_connection import AsteriskConnection
+from src.llm import LLM
+from src.sound import Sound
+from src.stt import STT
+from src.tts import TTS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -64,7 +64,7 @@ class Engine:
         if play_recorded_greeting and greeting_audio_path:
             try:
                 # Extract the sound file name from the full path
-                sound_file = os.path.basename(greeting_audio_path)
+                sound_file = os.path.basename(greeting_audio_path).replace('.ulaw', '')
                 self.sound.play(sound_file=f"ai-generated/{sound_file}")
             except Exception as e:
                 print(f"Error playing greeting audio: {e}")
