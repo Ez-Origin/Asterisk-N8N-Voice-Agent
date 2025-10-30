@@ -36,6 +36,7 @@ Follow these 3 steps to get a working agent.
 
 1) Clone and install
 ```bash
+cd ~
 git clone https://github.com/Ez-Origin/Asterisk-N8N-Voice-Agent.git
 cd Asterisk-N8N-Voice-Agent
 chmod +x install.sh

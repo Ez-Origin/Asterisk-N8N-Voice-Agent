@@ -178,7 +178,7 @@ test_piper.py
 # Audio files (generated during testing)
 *.wav
 *.mp3
-*.ulaw
+#*.ulaw
 *.alaw
 
 # Docker volumes

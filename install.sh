@@ -66,6 +66,34 @@ setup_media_paths() {
         fi
     fi
 
+    # --- Greeting Audio Setup ---
+    # Prefill from existing .env if present
+    local GREETING_AUDIO_PATH_DEFAULT="/mnt/asterisk_media/ai-generated/greeting.ulaw"
+    if [ -f .env ]; then
+        GREETING_AUDIO_PATH_FROM_ENV=$(grep -E '^[# ]*GREETING_AUDIO_PATH=' .env | tail -n1 | sed -E 's/^[# ]*GREETING_AUDIO_PATH=//')
+        if [ -n "$GREETING_AUDIO_PATH_FROM_ENV" ]; then
+            GREETING_AUDIO_PATH_DEFAULT="$GREETING_AUDIO_PATH_FROM_ENV"
+        fi
+    fi
+    read -p "Path for Greeting Audio [${GREETING_AUDIO_PATH_DEFAULT}]: " GREETING_AUDIO_PATH_INPUT
+    GREETING_AUDIO_PATH=${GREETING_AUDIO_PATH_INPUT:-$GREETING_AUDIO_PATH_DEFAULT}
+    upsert_env GREETING_AUDIO_PATH "$GREETING_AUDIO_PATH"
+
+    read -p "Play Recorded audio [Y/n]: " PLAY_RECORDED_AUDIO
+    if [[ "$PLAY_RECORDED_AUDIO" =~ ^[Yy]$|^$ ]]; then
+        upsert_env PLAY_RECORDED_GREETING "true"
+        if [ -f ./audio/greeting.ulaw ]; then
+            print_info "Copying ./audio/greeting.ulaw to $GREETING_AUDIO_PATH..."
+            $SUDO cp ./audio/greeting.ulaw "$GREETING_AUDIO_PATH"
+            $SUDO chown "$AST_UID:$AST_GID" "$GREETING_AUDIO_PATH"
+            print_success "Copied and set ownership for greeting audio."
+        else
+            print_warning "./audio/greeting.ulaw not found. Skipping copy."
+        fi
+    else
+        upsert_env PLAY_RECORDED_GREETING "false"
+    fi
+
     # Quick verification
     if [ -d /var/lib/asterisk/sounds/ai-generated ]; then
         print_success "Media path ready: /var/lib/asterisk/sounds/ai-generated -> /mnt/asterisk_media/ai-generated"
@@ -459,8 +487,8 @@ configure_env() {
     local G_ESC R_ESC
     G_ESC=$(printf '%s' "$GREETING" | sed 's/"/\\"/g')
     R_ESC=$(printf '%s' "$AI_ROLE" | sed 's/"/\\"/g')
-    upsert_env GREETING "\"$G_ESC\""
-    upsert_env AI_ROLE "\"$R_ESC\""
+    upsert_env GREETING "\"\"$G_ESC\"\""
+    upsert_env AI_ROLE "\"\"$R_ESC\"\""
 
     # Clean sed backup if created
     [ -f .env.bak ] && rm -f .env.bak || true
