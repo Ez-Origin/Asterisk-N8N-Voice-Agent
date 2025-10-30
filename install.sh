@@ -86,39 +86,16 @@ setup_media_paths() {
     fi
 
     # --- Greeting Audio Setup ---
-    # Prefill from existing .env if present
-    local GREETING_AUDIO_PATH_DEFAULT="/var/lib/asterisk/sounds/greeting.ulaw"
-    if [ -f .env ]; then
-        GREETING_AUDIO_PATH_FROM_ENV=$(grep -E '^[# ]*GREETING_AUDIO_PATH=' .env | tail -n1 | sed -E 's/^[# ]*GREETING_AUDIO_PATH=//')
-        if [ -n "$GREETING_AUDIO_PATH_FROM_ENV" ]; then
-            GREETING_AUDIO_PATH_DEFAULT="$GREETING_AUDIO_PATH_FROM_ENV"
-        fi
-    fi
-    read -p "Path for Greeting Audio [${GREETING_AUDIO_PATH_DEFAULT}]: " GREETING_AUDIO_PATH_INPUT
-    GREETING_AUDIO_PATH=${GREETING_AUDIO_PATH_INPUT:-$GREETING_AUDIO_PATH_DEFAULT}
-    upsert_env GREETING_AUDIO_PATH "$GREETING_AUDIO_PATH"
-
     read -p "Play Recorded audio [Y/n]: " PLAY_RECORDED_AUDIO
     if [[ "$PLAY_RECORDED_AUDIO" =~ ^[Yy]$|^$ ]]; then
         upsert_env PLAY_RECORDED_GREETING "true"
-        if [ -f ./audio/greeting.ulaw ]; then
-            print_info "Copying ./audio/greeting.ulaw to $GREETING_AUDIO_PATH..."
-            $SUDO cp ./audio/greeting.ulaw "$GREETING_AUDIO_PATH"
-            $SUDO chown "$AST_UID:$AST_GID" "$GREETING_AUDIO_PATH"
-            print_success "Copied and set ownership for greeting audio."
-        else
-            print_warning "./audio/greeting.ulaw not found. Skipping copy."
-        fi
     else
         upsert_env PLAY_RECORDED_GREETING "false"
     fi
+    upsert_env GREETING_AUDIO_PATH "/audio/greeting.ulaw"
+    print_info "Set GREETING_AUDIO_PATH to /audio/greeting.ulaw in .env"
 
-    # Quick verification
-    if [ -d /var/lib/asterisk/sounds/ai-generated ]; then
-        print_success "Media path ready: /var/lib/asterisk/sounds/ai-generated -> /mnt/asterisk_media/ai-generated"
-    else
-        print_warning "Media path symlink missing; please ensure permissions and rerun setup."
-    fi
+
 }
 
 print_success() {
@@ -554,6 +531,7 @@ select_config_template() {
     if [ "$PROFILE" = "google-n8n" ]; then
         if command -v yq >/dev/null 2>&1; then
             yq -i '.pipelines.google_n8n_pipeline = {"stt": "google_stt", "llm": "n8n_llm", "tts": "google_tts", "options": {"llm": {"webhook_url": "${N8N_WEBHOOK_URL}"}}}' "$CFG_DST"
+            yq -i '.services.ai-engine.volumes += ["./audio/greeting.ulaw:/audio/greeting.ulaw"]' docker-compose.yml
             print_success "Added google_n8n_pipeline to $CFG_DST"
         else
             # Fallback using cat append

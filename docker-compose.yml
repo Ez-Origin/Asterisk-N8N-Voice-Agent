@@ -11,6 +11,7 @@ services:
       - ./config:/app/config
       - ./scripts:/app/scripts
       - ./models:/app/models
+      - ./audio/greeting.ulaw:/audio/greeting.ulaw
       - /mnt/asterisk_media:/mnt/asterisk_media
     env_file:
       - .env
