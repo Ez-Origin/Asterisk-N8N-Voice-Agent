@@ -29,6 +29,25 @@ setup_media_paths() {
     AST_UID=$(id -u asterisk 2>/dev/null || echo 999)
     AST_GID=$(id -g asterisk 2>/dev/null || echo 996)
 
+
+    # Overwrite hardcoded UID/GID in python files
+    print_info "Overwriting UID/GID in playback_manager.py and ari_client.py..."
+    if [ -f "src/core/playback_manager.py" ]; then
+        sed -i.bak "s/os.chown(file_path, 995, 995)/os.chown(file_path, $AST_UID, $AST_GID)/g" "src/core/playback_manager.py"
+        rm -f "src/core/playback_manager.py.bak"
+        print_success "Updated src/core/playback_manager.py"
+    else
+        print_warning "src/core/playback_manager.py not found, skipping."
+    fi
+    if [ -f "src/ari_client.py" ]; then
+        sed -i.bak "s/asterisk_uid = 995/asterisk_uid = $AST_UID/g" "src/ari_client.py"
+        sed -i.bak "s/asterisk_gid = 995/asterisk_gid = $AST_GID/g" "src/ari_client.py"
+        rm -f "src/ari_client.py.bak"
+        print_success "Updated src/ari_client.py"
+    else
+        print_warning "src/ari_client.py not found, skipping."
+    fi
+
     # Create host media directories
     $SUDO mkdir -p /mnt/asterisk_media/ai-generated || true
     $SUDO mkdir -p /var/lib/asterisk/sounds || true
