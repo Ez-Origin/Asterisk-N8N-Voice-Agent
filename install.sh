@@ -533,6 +533,7 @@ select_config_template() {
             yq -i '.pipelines = {"google_n8n_pipeline": {"stt": "google_stt", "llm": "n8n_llm", "tts": "google_tts", "options": {"llm": {"webhook_url": "${N8N_WEBHOOK_URL}"}}}}' "$CFG_DST"
             yq -i '.active_pipeline = "google_n8n_pipeline"' "$CFG_DST"
             yq -i '.services.ai-engine.volumes += ["./audio/greeting.ulaw:/audio/greeting.ulaw"]' docker-compose.yml
+            yq -i '.services.ai-engine.env_file = ".env"' docker-compose.yml
             print_success "Added google_n8n_pipeline to $CFG_DST"
         else
             # Fallback using cat append
