@@ -1954,64 +1954,83 @@ class Engine:
             else:
                 logger.info("Pipeline TTS adapter session opened", call_id=call_id)
 
-            # Pipeline-managed initial greeting (optional)
-            greeting = ""
-            try:
-                greeting = (getattr(self.config.llm, "initial_greeting", None) or "").strip()
-            except Exception:
-                greeting = ""
-            if greeting:
-                max_attempts = 2
-                for attempt in range(1, max_attempts + 1):
+            # Check if recorded greeting should be played
+            play_recorded_greeting = os.getenv("PLAY_RECORDED_GREETING", "false").lower() == "true"
+
+            if play_recorded_greeting:
+                greeting_audio_path = os.getenv("GREETING_AUDIO_PATH")
+                if greeting_audio_path and os.path.exists(greeting_audio_path):
                     try:
-                        tts_bytes = bytearray()
-                        async for chunk in pipeline.tts_adapter.synthesize(call_id, greeting, pipeline.tts_options):
-                            if chunk:
-                                tts_bytes.extend(chunk)
-                        if not tts_bytes:
-                            logger.warning(
-                                "Pipeline greeting produced no audio",
-                                call_id=call_id,
-                                attempt=attempt,
-                            )
+                        with open(greeting_audio_path, "rb") as f:
+                            audio_bytes = f.read()
+                        if audio_bytes:
+                            await self.playback_manager.play_audio(call_id, audio_bytes, "pipeline-tts-greeting")
+                            logger.info("Played recorded greeting from file.", call_id=call_id, path=greeting_audio_path)
                         else:
-                            await self.playback_manager.play_audio(call_id, bytes(tts_bytes), "pipeline-tts-greeting")
-                        break
-                    except RuntimeError as exc:
-                        error_text = str(exc).lower()
-                        if attempt < max_attempts and "session" in error_text:
-                            logger.debug(
-                                "Pipeline greeting retry after session error",
-                                call_id=call_id,
-                                attempt=attempt,
-                                exc_info=True,
-                            )
-                            try:
-                                await pipeline.tts_adapter.open_call(call_id, pipeline.tts_options)
-                                continue
-                            except Exception:
+                            logger.warning("Recorded greeting file is empty.", call_id=call_id, path=greeting_audio_path)
+                    except Exception as e:
+                        logger.error("Failed to play recorded greeting.", call_id=call_id, path=greeting_audio_path, error=str(e))
+                else:
+                    logger.warning("GREETING_AUDIO_PATH is not set or file does not exist.", call_id=call_id)
+            else:
+                # Pipeline-managed initial greeting (optional)
+                greeting = ""
+                try:
+                    greeting = (getattr(self.config.llm, "initial_greeting", None) or "").strip()
+                except Exception:
+                    greeting = ""
+                if greeting:
+                    max_attempts = 2
+                    for attempt in range(1, max_attempts + 1):
+                        try:
+                            tts_bytes = bytearray()
+                            async for chunk in pipeline.tts_adapter.synthesize(call_id, greeting, pipeline.tts_options):
+                                if chunk:
+                                    tts_bytes.extend(chunk)
+                            if not tts_bytes:
+                                logger.warning(
+                                    "Pipeline greeting produced no audio",
+                                    call_id=call_id,
+                                    attempt=attempt,
+                                )
+                            else:
+                                await self.playback_manager.play_audio(call_id, bytes(tts_bytes), "pipeline-tts-greeting")
+                            break
+                        except RuntimeError as exc:
+                            error_text = str(exc).lower()
+                            if attempt < max_attempts and "session" in error_text:
                                 logger.debug(
-                                    "Pipeline greeting re-open_call failed",
+                                    "Pipeline greeting retry after session error",
                                     call_id=call_id,
                                     attempt=attempt,
                                     exc_info=True,
                                 )
-                        logger.error(
-                            "Pipeline greeting synthesis failed",
-                            call_id=call_id,
-                            attempt=attempt,
-                            error=str(exc),
-                            exc_info=True,
-                        )
-                        break
-                    except Exception:
-                        logger.error(
-                            "Pipeline greeting unexpected failure",
-                            call_id=call_id,
-                            attempt=attempt,
-                            exc_info=True,
-                        )
-                        break
+                                try:
+                                    await pipeline.tts_adapter.open_call(call_id, pipeline.tts_options)
+                                    continue
+                                except Exception:
+                                    logger.debug(
+                                        "Pipeline greeting re-open_call failed",
+                                        call_id=call_id,
+                                        attempt=attempt,
+                                        exc_info=True,
+                                    )
+                            logger.error(
+                                "Pipeline greeting synthesis failed",
+                                call_id=call_id,
+                                attempt=attempt,
+                                error=str(exc),
+                                exc_info=True,
+                            )
+                            break
+                        except Exception:
+                            logger.error(
+                                "Pipeline greeting unexpected failure",
+                                call_id=call_id,
+                                attempt=attempt,
+                                exc_info=True,
+                            )
+                            break
 
             # Accumulate into ~160ms chunks for STT while keeping ingestion responsive
             bytes_per_ms = 32  # 16k Hz * 2 bytes / 1000 ms
