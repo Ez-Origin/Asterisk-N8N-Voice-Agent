@@ -95,12 +95,7 @@ setup_media_paths() {
     upsert_env GREETING_AUDIO_PATH "/audio/greeting.ulaw"
     print_info "Set GREETING_AUDIO_PATH to /audio/greeting.ulaw in .env"
 
-    # Quick verification
-    if [ -d /var/lib/asterisk/sounds/ai-generated ]; then
-        print_success "Media path ready: /var/lib/asterisk/sounds/ai-generated -> /mnt/asterisk_media/ai-generated"
-    else
-        print_warning "Media path symlink missing; please ensure permissions and rerun setup."
-    fi
+
 }
 
 print_success() {
@@ -535,13 +530,15 @@ select_config_template() {
     # Add google_n8n_pipeline if selected
     if [ "$PROFILE" = "google-n8n" ]; then
         if command -v yq >/dev/null 2>&1; then
-            yq -i '.pipelines.google_n8n_pipeline = {"stt": "google_stt", "llm": "n8n_llm", "tts": "google_tts", "options": {"llm": {"webhook_url": "${N8N_WEBHOOK_URL}"}}}' "$CFG_DST"
+            yq -i '.pipelines = {"google_n8n_pipeline": {"stt": "google_stt", "llm": "n8n_llm", "tts": "google_tts", "options": {"llm": {"webhook_url": "${N8N_WEBHOOK_URL}"}}}}' "$CFG_DST"
+            yq -i '.active_pipeline = "google_n8n_pipeline"' "$CFG_DST"
             yq -i '.services.ai-engine.volumes += ["./audio/greeting.ulaw:/audio/greeting.ulaw"]' docker-compose.yml
             print_success "Added google_n8n_pipeline to $CFG_DST"
         else
             # Fallback using cat append
             cat >> "$CFG_DST" <<EOF
 
+pipelines:
   google_n8n_pipeline:
     stt: google_stt
     llm: n8n_llm
@@ -549,6 +546,7 @@ select_config_template() {
     options:
       llm:
         webhook_url: "\${N8N_WEBHOOK_URL}" # <-- This will be read from the .env file
+active_pipeline: "google_n8n_pipeline"
 EOF
             print_warning "Added google_n8n_pipeline via fallback. Please verify formatting in $CFG_DST"
         fi
