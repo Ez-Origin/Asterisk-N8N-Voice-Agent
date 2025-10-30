@@ -97,6 +97,12 @@ class GoogleProviderConfig(BaseModel):
     llm_model: str = Field(default="models/gemini-1.5-pro-latest")
 
 
+class N8nProviderConfig(BaseModel):
+    webhook_url: str
+    response_json_key: str = Field(default="response")
+    timeout_sec: float = Field(default=10.0)
+
+
 class OpenAIRealtimeProviderConfig(BaseModel):
     enabled: bool = Field(default=True)
     api_key: Optional[str] = None

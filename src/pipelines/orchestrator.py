@@ -20,6 +20,7 @@ from ..config import (
     GoogleProviderConfig,
     LocalProviderConfig,
     OpenAIProviderConfig,
+    N8nProviderConfig,
 )
 from ..logging_config import get_logger
 from .base import Component, STTComponent, LLMComponent, TTSComponent
@@ -27,6 +28,7 @@ from .deepgram import DeepgramSTTAdapter, DeepgramTTSAdapter
 from .google import GoogleLLMAdapter, GoogleSTTAdapter, GoogleTTSAdapter
 from .local import LocalLLMAdapter, LocalSTTAdapter, LocalTTSAdapter
 from .openai import OpenAISTTAdapter, OpenAILLMAdapter, OpenAITTSAdapter
+from .n8n import N8nAdapter
 
 logger = get_logger(__name__)
 
@@ -173,6 +175,7 @@ def _build_default_registry() -> Dict[str, ComponentFactory]:
         "openai",
         "openai_realtime",
         "google",
+        "n8n",
     )
 
     for provider in default_providers:
@@ -207,6 +210,7 @@ class PipelineOrchestrator:
         self._deepgram_provider_config: Optional[DeepgramProviderConfig] = self._hydrate_deepgram_config()
         self._openai_provider_config: Optional[OpenAIProviderConfig] = self._hydrate_openai_config()
         self._google_provider_config: Optional[GoogleProviderConfig] = self._hydrate_google_config()
+        self._n8n_provider_config: Optional[N8nProviderConfig] = self._hydrate_n8n_config()
         self._register_builtin_factories()
 
         self._assignments: Dict[str, PipelineResolution] = {}
@@ -354,6 +358,28 @@ class PipelineOrchestrator:
         )
         return None
 
+    def _hydrate_n8n_config(self) -> Optional[N8nProviderConfig]:
+        providers = getattr(self.config, "providers", {}) or {}
+        raw_config = providers.get("n8n")
+        if not raw_config:
+            return None
+        if isinstance(raw_config, N8nProviderConfig):
+            return raw_config
+        if isinstance(raw_config, dict):
+            try:
+                return N8nProviderConfig(**raw_config)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to hydrate n8n provider config for pipelines",
+                    error=str(exc),
+                )
+                return None
+        logger.warning(
+            "Unsupported n8n provider config type for pipelines",
+            config_type=type(raw_config).__name__,
+        )
+        return None
+
     def _register_builtin_factories(self) -> None:
         if self._local_provider_config:
             stt_factory = self._make_local_stt_factory(self._local_provider_config)
@@ -423,6 +449,13 @@ class PipelineOrchestrator:
             )
         else:
             logger.debug("Google pipeline adapters not registered - credentials unavailable or invalid")
+
+        if self._n8n_provider_config:
+            llm_factory = self._make_n8n_llm_factory(self._n8n_provider_config)
+            self.register_factory("n8n_llm", llm_factory)
+            logger.info("n8n pipeline adapter registered", llm_factory="n8n_llm")
+        else:
+            logger.debug("n8n pipeline adapter not registered - provider config unavailable")
 
     def _make_local_stt_factory(
         self,
@@ -597,6 +630,22 @@ class PipelineOrchestrator:
                 component_key,
                 self.config,
                 GoogleProviderConfig(**config_payload),
+                options,
+            )
+
+        return factory
+
+    def _make_n8n_llm_factory(
+        self,
+        provider_config: N8nProviderConfig,
+    ) -> ComponentFactory:
+        config_payload = provider_config.model_dump()
+
+        def factory(component_key: str, options: Dict[str, Any]) -> Component:
+            return N8nAdapter(
+                component_key,
+                self.config,
+                N8nProviderConfig(**config_payload),
                 options,
             )
 

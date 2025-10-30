@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Optional
 
 import aiohttp
 
-from ..config import AppConfig
+from ..config import AppConfig, N8nProviderConfig
 from ..logging_config import get_logger
 from .base import LLMComponent
 
@@ -21,26 +21,23 @@ class N8nAdapter(LLMComponent):
         self,
         component_key: str,
         app_config: AppConfig,
+        provider_config: N8nProviderConfig,
         options: Optional[Dict[str, Any]] = None,
         *,
         session_factory: Optional[Callable[[], aiohttp.ClientSession]] = None,
     ):
         self.component_key = component_key
         self._app_config = app_config
+        self._provider_config = provider_config
         self._pipeline_defaults = dict(options or {})
         self._session_factory = session_factory
         self._session: Optional[aiohttp.ClientSession] = None
-
-        # Extract n8n webhook URL from options
-        self._webhook_url = self._pipeline_defaults.get("webhook_url")
-        if not self._webhook_url:
-            raise ValueError("n8n webhook_url must be configured in pipeline options")
 
     async def start(self) -> None:
         logger.debug(
             "n8n adapter initialized",
             component=self.component_key,
-            webhook_url=self._webhook_url,
+            webhook_url=self._provider_config.webhook_url,
         )
 
     async def stop(self) -> None:
@@ -62,10 +59,10 @@ class N8nAdapter(LLMComponent):
         merged_options = self._pipeline_defaults.copy()
         merged_options.update(options)
 
-        webhook_url = merged_options.get("webhook_url", self._webhook_url)
-        timeout = float(merged_options.get("timeout_sec", 10.0))
+        webhook_url = merged_options.get("webhook_url", self._provider_config.webhook_url)
+        timeout = float(merged_options.get("timeout_sec", self._provider_config.timeout_sec))
         # The key in the response that holds the text to be spoken.
-        response_json_key = merged_options.get("response_json_key", "response")
+        response_json_key = merged_options.get("response_json_key", self._provider_config.response_json_key)
 
         payload = {
             "call_id": call_id,
