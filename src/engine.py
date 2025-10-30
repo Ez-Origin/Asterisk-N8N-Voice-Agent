@@ -1959,6 +1959,7 @@ class Engine:
 
             if play_recorded_greeting:
                 greeting_audio_path = os.getenv("GREETING_AUDIO_PATH")
+                logger.info("Greetin audio path ", greeting_audio_path)
                 if greeting_audio_path and os.path.exists(greeting_audio_path):
                     try:
                         with open(greeting_audio_path, "rb") as f:
